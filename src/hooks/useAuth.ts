@@ -3,30 +3,46 @@ import { supabase, isSupabaseAvailable } from '@/lib/supabase';
 import type { AuthUser, TeacherProfile, AuthState } from '@/types';
 
 // Simple hash function for demo (use bcrypt in production)
+// crypto.subtle is only available in secure contexts (HTTPS or localhost)
 async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  // Fallback when crypto.subtle not available (e.g. HTTP on non-localhost): simple hash for demo
+  let h = 0;
+  for (let i = 0; i < password.length; i++) {
+    h = (h << 5) - h + password.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h).toString(16) + password.length.toString(16);
 }
 
 async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+  if (!password || !storedHash) return false;
+
   // Demo mode: accept plain text comparison for demo accounts
   if (storedHash === 'demo1234' || password === storedHash) {
     return true;
   }
-  
-  // Hash the input and compare
-  const inputHash = await hashPassword(password);
-  console.log('Password verification:', { inputHash, storedHash, match: inputHash === storedHash });
-  
-  // Also check if stored hash matches expected demo hash
+
+  // Known SHA-256('demo1234') for demo bypass
   const expectedDemoHash = 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f';
   if (storedHash === expectedDemoHash && password === 'demo1234') {
     return true;
   }
-  
+
+  // When crypto.subtle is unavailable (e.g. HTTP on non-localhost), only allow direct match
+  const hasCrypto = typeof crypto !== 'undefined' && crypto.subtle;
+  if (!hasCrypto) {
+    return password === storedHash;
+  }
+
+  // Hash the input and compare
+  const inputHash = await hashPassword(password);
   return inputHash === storedHash;
 }
 
