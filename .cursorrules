@@ -1,0 +1,44 @@
+# PLC Next Gen – Cursor Rules
+
+## โปรเจกต์
+- **ชื่อ:** School Knowledge Management (KM) App — "Mobile First" สำหรับครูในการจับ คิดสะท้อน และแชร์ความรู้
+- **เอกสารหลัก:** อ่าน `PRD.md` สำหรับความต้องการผลิตภัณฑ์, `REFACTOR_PLAN.md` สำหรับแผนปรับโครงสร้าง
+- **บทบาท:** Teacher (สร้าง/แชร์), Curator (จัดการคลังความรู้)
+
+## สแต็กและเครื่องมือ
+- **Framework:** React 18 + TypeScript
+- **Build:** Vite 6, path alias `@/` → `./src`
+- **Styling:** Tailwind CSS v4; ฟอนต์ Kanit (หัวข้อ), Sarabun (body)
+- **UI:** shadcn/ui (Radix) ใน `src/components/ui/` — ใช้ Button, Card, Badge, Input ฯลฯ แทนการเขียน class เองเมื่อทำได้
+- **ไอคอน:** Lucide React
+- **Charts:** recharts สำหรับ analytics
+- **ข้อมูลปัจจุบัน:** localStorage + `window.addEventListener('storage')` สำหรับ sync ระหว่างแท็บ (แผนย้ายไป Supabase ภายหลัง)
+
+## โครงสร้างและ Conventions
+- **หน้าจอ:** หนึ่งไฟล์ต่อหนึ่งหน้าจอ, ตั้งชื่อ `*Screen.tsx` (เช่น `RecordsScreen.tsx`, `CuratorDashboardScreen.tsx`)
+- **คอมโพเนนต์:** อยู่ใน `src/components/`; UI พื้นฐานใช้จาก `src/components/ui/`
+- **Layout:** Mobile First — container หลัก `max-w-md`; ใช้ `safe-area-bottom` ที่ bottom nav
+- **ภาษา UI:** ข้อความในแอปเป็นภาษาไทย (ป้าย, ปุ่ม, ข้อความแจ้ง)
+
+## Type Safety (ตาม REFACTOR_PLAN)
+- วางแผนรวม type ไว้ที่ `src/types/index.ts`: `RecordItem`, `TranscriptLine`, `ShareLevel`, `ProposalStatus` ฯลฯ
+- คอมโพเนนต์ควร import type จากที่รวม ไม่ใช่ประกาศซ้ำในแต่ละไฟล์
+
+## Component และ UI
+- **ใช้ชุด UI ที่มีอยู่:** Refactor หน้าจอเช่น `RecordsScreen`, `CuratorDashboardScreen` ให้ใช้ `Button`, `Input`, `Card`, `Badge` จาก `components/ui`
+- **สี:** เลี่ยงการ hardcode เช่น `bg-blue-600`, `text-purple-700` — พิจารณาใช้ semantic tokens จาก `globals.css` (เช่น `--primary`, `--destructive`) หรือ pattern สีที่สอดคล้องกัน
+- คอมโพเนนต์ที่เพิ่มใหม่ควรรับ `className` หรือ `style` เพื่อให้ทดสอบและปรับ layout ง่าย
+
+## State และ Data
+- **แผนถัดไป:** สร้าง `/hooks` — เช่น `useSpeechRecognition` (จาก RecordCaptureScreen), `useNotes` (localStorage CRUD + storage listener)
+- **Mock data:** ไม่ hardcode ในหน้าจอ; ใช้จาก `useNotes` หรือแยกไว้ใน `/data/mocks.ts`
+
+## Testing และคุณภาพ
+- ใช้ `id` ที่ unique สำหรับ key และการทดสอบ
+- พิจารณาให้คอมโพเนนต์รับ props สำหรับ styling เพื่อความยืดหยุ่น
+
+## สรุปสำหรับ AI
+- ตอบและอธิบายเป็นภาษาไทยเมื่อผู้ใช้สื่อสารเป็นไทย
+- เมื่อแก้/เพิ่มฟีเจอร์: อ้างอิง PRD สำหรับ flow, REFACTOR_PLAN สำหรับลำดับปรับโครงสร้าง
+- เลือกใช้คอมโพเนนต์จาก `src/components/ui/` ก่อนสร้างปุ่ม/การ์ด/ฟอร์มใหม่
+- คำนึงถึง Mobile First และ max-w-md ในทุก UI ที่เพิ่มหรือแก้

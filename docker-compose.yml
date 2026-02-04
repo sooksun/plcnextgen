@@ -1,0 +1,16 @@
+# PLC Next Gen - Docker Compose (Ubuntu Server 24.x.x)
+# ใช้: cp .env.example .env แล้วแก้ค่า จากนั้น docker compose up -d --build
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Bangkok
