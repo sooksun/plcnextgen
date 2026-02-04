@@ -12,12 +12,64 @@ interface SpeechRecognitionInstance {
   continuous: boolean;
   interimResults: boolean;
   lang: string;
-  onresult: (event: { results: Iterable<{ 0: { transcript: string }; length: number }> }) => void;
+  onresult: (event: SpeechRecognitionEvent) => void;
   onerror: (event: { error: string }) => void;
   onstart: () => void;
+  onend: () => void;
   start: () => void;
   stop: () => void;
 }
+
+interface SpeechRecognitionEvent {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  isFinal: boolean;
+  length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+// Throttle utility function
+function throttle<T extends (...args: unknown[]) => void>(
+  func: T,
+  limit: number
+): (...args: Parameters<T>) => void {
+  let inThrottle = false;
+  let lastArgs: Parameters<T> | null = null;
+
+  return (...args: Parameters<T>) => {
+    if (!inThrottle) {
+      func(...args);
+      inThrottle = true;
+      setTimeout(() => {
+        inThrottle = false;
+        if (lastArgs) {
+          func(...lastArgs);
+          lastArgs = null;
+        }
+      }, limit);
+    } else {
+      lastArgs = args;
+    }
+  };
+}
+
+// Constants for optimization
+const THROTTLE_MS = 200; // Update UI max 5 times per second
 
 export function useSpeechRecognition(options?: { lang?: string }) {
   const lang = options?.lang ?? 'th-TH';
@@ -30,6 +82,10 @@ export function useSpeechRecognition(options?: { lang?: string }) {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const transcriptRef = useRef('');
   const fullTranscriptRef = useRef('');
+  
+  // Optimization: accumulated final transcripts (resultIndex approach)
+  const accumulatedFinalRef = useRef('');
+  const interimRef = useRef('');
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) return true;
@@ -46,6 +102,17 @@ export function useSpeechRecognition(options?: { lang?: string }) {
     }
   }, []);
 
+  // Throttled update function for UI (แนวทาง 2)
+  const throttledUpdateRef = useRef<((text: string) => void) | null>(null);
+
+  useEffect(() => {
+    // Create throttled function once
+    throttledUpdateRef.current = throttle((text: string) => {
+      setCurrentTranscript(text);
+      transcriptRef.current = text;
+    }, THROTTLE_MS);
+  }, []);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -59,12 +126,41 @@ export function useSpeechRecognition(options?: { lang?: string }) {
     recognition.interimResults = true;
     recognition.lang = lang;
 
-    recognition.onresult = (event: any) => {
-      const text = Array.from(event.results)
-        .map((r: any) => r[0].transcript)
-        .join('');
-      setCurrentTranscript(text);
-      transcriptRef.current = text;
+    // แนวทาง 1: ใช้ resultIndex - อ่านเฉพาะ result ใหม่ (O(1) แทน O(n))
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let newFinalTranscript = '';
+      let newInterimTranscript = '';
+
+      // เริ่มจาก resultIndex (result ใหม่ที่ยังไม่เคยประมวลผล)
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        const transcript = result[0].transcript;
+        
+        if (result.isFinal) {
+          // Final result - เก็บถาวร
+          newFinalTranscript += transcript;
+        } else {
+          // Interim result - แสดงชั่วคราว
+          newInterimTranscript += transcript;
+        }
+      }
+
+      // สะสม final transcripts
+      if (newFinalTranscript) {
+        accumulatedFinalRef.current += newFinalTranscript;
+      }
+      
+      // เก็บ interim ล่าสุด
+      interimRef.current = newInterimTranscript;
+
+      // รวม final + interim สำหรับแสดงผล
+      const displayText = accumulatedFinalRef.current + interimRef.current;
+      
+      // แนวทาง 2: ใช้ throttle เพื่อลด re-render
+      if (throttledUpdateRef.current) {
+        throttledUpdateRef.current(displayText);
+      }
+      
       setErrorMessage(null);
     };
 
@@ -82,6 +178,15 @@ export function useSpeechRecognition(options?: { lang?: string }) {
       setErrorMessage(null);
     };
 
+    recognition.onend = () => {
+      // อัพเดท final transcript เมื่อ recognition หยุด
+      const finalText = accumulatedFinalRef.current + interimRef.current;
+      if (finalText) {
+        transcriptRef.current = finalText;
+        setCurrentTranscript(finalText);
+      }
+    };
+
     recognitionRef.current = recognition;
     return () => {
       try {
@@ -94,8 +199,11 @@ export function useSpeechRecognition(options?: { lang?: string }) {
   }, [lang]);
 
   const start = useCallback(() => {
+    // Reset all refs for new session
     setCurrentTranscript('');
     transcriptRef.current = '';
+    accumulatedFinalRef.current = '';
+    interimRef.current = '';
     setErrorMessage(null);
     try {
       recognitionRef.current?.start();
@@ -105,17 +213,27 @@ export function useSpeechRecognition(options?: { lang?: string }) {
   }, []);
 
   const pause = useCallback(() => {
-    const current = transcriptRef.current;
     try {
       recognitionRef.current?.stop();
     } catch {
       // ignore
     }
-    const nextFull = fullTranscriptRef.current ? `${fullTranscriptRef.current} ${current}` : current;
+    // รวม accumulated + interim เป็น current
+    const current = accumulatedFinalRef.current + interimRef.current;
+    transcriptRef.current = current;
+    
+    // เก็บเข้า fullTranscript
+    const nextFull = fullTranscriptRef.current 
+      ? `${fullTranscriptRef.current} ${current}` 
+      : current;
     fullTranscriptRef.current = nextFull;
     setFullTranscript(nextFull);
+    
+    // Reset current session
     setCurrentTranscript('');
     transcriptRef.current = '';
+    accumulatedFinalRef.current = '';
+    interimRef.current = '';
   }, []);
 
   const stop = useCallback((): string => {
@@ -124,20 +242,30 @@ export function useSpeechRecognition(options?: { lang?: string }) {
     } catch {
       // ignore
     }
-    const current = transcriptRef.current;
-    const final = fullTranscriptRef.current ? `${fullTranscriptRef.current} ${current}` : current;
+    // รวม accumulated + interim
+    const current = accumulatedFinalRef.current + interimRef.current;
+    const final = fullTranscriptRef.current 
+      ? `${fullTranscriptRef.current} ${current}` 
+      : current;
+    
+    // Reset all refs
     fullTranscriptRef.current = '';
     transcriptRef.current = '';
+    accumulatedFinalRef.current = '';
+    interimRef.current = '';
     setFullTranscript('');
     setCurrentTranscript('');
+    
     return final;
   }, []);
 
   const reset = useCallback(() => {
     fullTranscriptRef.current = '';
+    transcriptRef.current = '';
+    accumulatedFinalRef.current = '';
+    interimRef.current = '';
     setFullTranscript('');
     setCurrentTranscript('');
-    transcriptRef.current = '';
     setErrorMessage(null);
   }, []);
 
