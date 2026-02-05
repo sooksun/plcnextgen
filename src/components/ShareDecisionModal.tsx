@@ -2,21 +2,13 @@ import { X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import type { ShareLevel } from '@/types';
+import { PLC_GROUPS } from '@/data/plcGroups';
 
 interface ShareDecisionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (level: ShareLevel, plcId?: string) => void;
 }
-
-const plcGroups = [
-  { id: 'plc-math', name: 'PLC คณิตศาสตร์' },
-  { id: 'plc-science', name: 'PLC วิทยาศาสตร์' },
-  { id: 'plc-thai', name: 'PLC ภาษาไทย' },
-  { id: 'plc-english', name: 'PLC ภาษาอังกฤษ' },
-  { id: 'plc-social', name: 'PLC สังคมศึกษา' },
-  { id: 'plc-arts', name: 'PLC ศิลปะ' }
-];
 
 export function ShareDecisionModal({ isOpen, onClose, onConfirm }: ShareDecisionModalProps) {
   const [shareLevel, setShareLevel] = useState<ShareLevel>('private');
@@ -109,7 +101,7 @@ export function ShareDecisionModal({ isOpen, onClose, onConfirm }: ShareDecision
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">เลือก PLC...</option>
-                    {plcGroups.map((plc) => (
+                    {PLC_GROUPS.map((plc) => (
                       <option key={plc.id} value={plc.id}>
                         {plc.name}
                       </option>

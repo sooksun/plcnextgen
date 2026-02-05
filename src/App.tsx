@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
-import { Home, FileText, Plus, Users, User, Loader2 } from 'lucide-react';
+import { Home, FileText, Plus, Users, User, Loader2, Moon, Sun } from 'lucide-react';
+import { useTheme } from './contexts/ThemeContext';
+import { Button3D } from './components/ui/theme-3d';
 import { PLCListScreen } from './components/PLCListScreen';
 import { HomeScreen } from './components/HomeScreen';
 import { ProfileScreen } from './components/ProfileScreen';
@@ -17,9 +19,11 @@ import { LoginScreen } from './components/LoginScreen';
 import { AuthProvider, useAuthContext } from './contexts/AuthContext';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import type { ShareLevel } from '@/types';
+import { getPlcNameById } from '@/data/plcGroups';
 
 function AppContent() {
   const { isAuthenticated, isLoading, user, isCurator, login, logout } = useAuthContext();
+  const { isDark, toggleTheme } = useTheme();
   
   const [activeTab, setActiveTab] = useState('home');
   const [showRecordCapture, setShowRecordCapture] = useState(false);
@@ -38,10 +42,10 @@ function AppContent() {
   // Show loading spinner while checking auth
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-theme-bg flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
-          <p className="text-gray-600">กำลังโหลด...</p>
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-[var(--primary)]" />
+          <p className="text-theme-secondary">กำลังโหลด...</p>
         </div>
       </div>
     );
@@ -74,7 +78,8 @@ function AppContent() {
       toast.success('บันทึกเป็นส่วนตัวเรียบร้อยแล้ว');
     } else if (level === 'plc') {
       setActiveTab('plc');
-      toast.success(`แชร์กับ ${plcId} เรียบร้อยแล้ว`);
+      const plcLabel = (plcId && getPlcNameById(plcId)) || plcId || 'PLC';
+      toast.success(`แชร์กับ ${plcLabel} เรียบร้อยแล้ว`);
     } else if (level === 'proposal') {
       setShowCuratorDashboard(true);
       toast.success('ส่งข้อเสนอเข้ากล่องขาเข้าเรียบร้อยแล้ว');
@@ -141,24 +146,18 @@ function AppContent() {
     // Curator Dashboard
     if (showCuratorDashboard) {
       return (
-        <div className="flex flex-col h-full bg-gray-50">
+        <div className="flex flex-col h-full bg-theme-bg">
           <CuratorDashboardScreen
             onViewProposal={handleViewProposal}
           />
           {/* Dashboard actions */}
           <div className="absolute bottom-4 right-4 flex flex-col gap-2 z-20">
-            <button
-              onClick={handleNavigateToLibrary}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-lg text-sm"
-            >
+            <Button3D variant="primary" size="sm" onClick={handleNavigateToLibrary}>
               📚 ดูคลังความรู้
-            </button>
-            <button
-              onClick={() => setShowCuratorDashboard(false)}
-              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg shadow-lg text-sm"
-            >
+            </Button3D>
+            <Button3D variant="secondary" size="sm" onClick={() => setShowCuratorDashboard(false)}>
               ← กลับหน้าหลัก
-            </button>
+            </Button3D>
           </div>
         </div>
       );
@@ -170,6 +169,10 @@ function AppContent() {
         <PLCDetailScreen
           plcName={selectedPLC}
           onBack={() => setSelectedPLC(null)}
+          onShareNewNote={() => {
+            setSelectedPLC(null);
+            setShowTypeNote(true);
+          }}
         />
       );
     }
@@ -221,30 +224,32 @@ function AppContent() {
     // Main Tabs
     return (
       <div className="flex-1 h-full overflow-hidden flex flex-col">
-        {/* Top Bar: User + Logout (ไม่ทับเนื้อหา) */}
-        <header className="flex-none flex items-center justify-between gap-3 px-4 py-3 bg-white border-b border-gray-200 safe-area-top shrink-0">
-          <span className="text-sm text-gray-800 font-medium truncate min-w-0 flex-1" title={user?.email || undefined}>
+        {/* Top Bar — theme-3d surface */}
+        <header className="flex-none flex items-center justify-between gap-3 px-4 py-3 gradient-surface shadow-elevated border-b border-black/5 dark:border-white/10 safe-area-top shrink-0">
+          <span className="text-sm text-text-primary font-medium truncate min-w-0 flex-1" title={user?.email || undefined}>
             {user?.full_name || user?.email || 'User'}
           </span>
           <div className="flex items-center gap-2 shrink-0">
-            {isCurator && (
-              <button
-                onClick={() => setShowCuratorDashboard(true)}
-                className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-medium"
-              >
-                👨‍💼 Curator
-              </button>
-            )}
             <button
-              onClick={logout}
-              className="px-3 py-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 rounded-lg text-xs font-medium transition-colors"
+              type="button"
+              onClick={toggleTheme}
+              className="p-2 rounded-xl text-text-secondary hover:bg-accent hover:text-text-primary transition-colors focus-ring-3d focus:outline-none"
+              aria-label={isDark ? 'เปิดโหมดสว่าง' : 'เปิดโหมดมืด'}
             >
-              ออก
+              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
+            {isCurator && (
+              <Button3D variant="primary" size="sm" onClick={() => setShowCuratorDashboard(true)}>
+                👨‍💼 Curator
+              </Button3D>
+            )}
+            <Button3D variant="destructive" size="sm" onClick={logout}>
+              ออก
+            </Button3D>
           </div>
         </header>
 
-        <div className="flex-1 overflow-auto pb-20 min-h-0">
+        <div className="flex-1 overflow-auto pb-20 min-h-0 bg-theme-bg">
           {activeTab === 'home' && (
             <HomeScreen
               onRecordVoice={() => setShowRecordCapture(true)}
@@ -266,54 +271,55 @@ function AppContent() {
           {activeTab === 'profile' && <ProfileScreen />}
         </div>
 
-        {/* Bottom Navigation */}
-        <nav className="absolute bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 safe-area-bottom">
+        {/* Bottom Navigation — theme-3d surface + 3D shadow */}
+        <nav className="absolute bottom-0 left-0 right-0 z-40 gradient-surface shadow-modal-3d border-t border-black/5 dark:border-white/10 safe-area-bottom">
           <div className="w-full">
             <div className="flex justify-around items-center h-16">
               <button
+                type="button"
                 onClick={() => setActiveTab('home')}
-                className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-                  activeTab === 'home' ? 'text-blue-600' : 'text-gray-500'
+                className={`flex flex-col items-center justify-center flex-1 h-full transition-colors min-h-[44px] ${
+                  activeTab === 'home' ? 'text-[var(--primary)]' : 'text-text-muted'
                 }`}
               >
                 <Home className="w-6 h-6" />
                 <span className="text-xs mt-1">Home</span>
               </button>
-              
               <button
+                type="button"
                 onClick={() => setActiveTab('records')}
-                className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-                  activeTab === 'records' ? 'text-blue-600' : 'text-gray-500'
+                className={`flex flex-col items-center justify-center flex-1 h-full transition-colors min-h-[44px] ${
+                  activeTab === 'records' ? 'text-[var(--primary)]' : 'text-text-muted'
                 }`}
               >
                 <FileText className="w-6 h-6" />
                 <span className="text-xs mt-1">Records</span>
               </button>
-              
               <button
+                type="button"
                 onClick={handleCreateNew}
-                className="flex flex-col items-center justify-center flex-1 h-full text-blue-600 relative"
+                className="flex flex-col items-center justify-center flex-1 h-full relative min-h-[44px] text-[var(--primary)]"
               >
-                <div className="absolute -top-6 w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition-transform">
-                  <Plus className="w-6 h-6 text-white" />
+                <div className="absolute -top-6 w-12 h-12 rounded-full flex items-center justify-center shadow-button-3d gradient-primary hover:opacity-95 active:shadow-button-pressed active:translate-y-0.5 transition-all">
+                  <Plus className="w-6 h-6 text-primary-foreground" />
                 </div>
                 <span className="text-xs mt-8">Create</span>
               </button>
-              
               <button
+                type="button"
                 onClick={() => setActiveTab('plc')}
-                className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-                  activeTab === 'plc' ? 'text-blue-600' : 'text-gray-500'
+                className={`flex flex-col items-center justify-center flex-1 h-full transition-colors min-h-[44px] ${
+                  activeTab === 'plc' ? 'text-[var(--primary)]' : 'text-text-muted'
                 }`}
               >
                 <Users className="w-6 h-6" />
                 <span className="text-xs mt-1">PLC</span>
               </button>
-              
               <button
+                type="button"
                 onClick={() => setActiveTab('profile')}
-                className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-                  activeTab === 'profile' ? 'text-blue-600' : 'text-gray-500'
+                className={`flex flex-col items-center justify-center flex-1 h-full transition-colors min-h-[44px] ${
+                  activeTab === 'profile' ? 'text-[var(--primary)]' : 'text-text-muted'
                 }`}
               >
                 <User className="w-6 h-6" />
@@ -327,8 +333,8 @@ function AppContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex justify-center w-full">
-      <div className="w-full max-w-md h-screen bg-gray-50 flex flex-col relative shadow-xl overflow-hidden">
+    <div className="min-h-screen bg-theme-bg flex justify-center w-full">
+      <div className="w-full max-w-md h-screen bg-theme-bg flex flex-col relative shadow-card-3d overflow-hidden">
         {renderContent()}
       </div>
     </div>

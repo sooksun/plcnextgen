@@ -1,52 +1,62 @@
 import { ArrowLeft, MessageCircle, Send, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { useConfirm } from '@/contexts/ConfirmContext';
+import { useNotes } from '@/hooks/useNotes';
+import { usePLCChat } from '@/hooks/usePLCChat';
+import { getPlcIdByName } from '@/data/plcGroups';
+import { useAuthContext } from '@/contexts/AuthContext';
 import type { TabType, SharedRecord } from '@/types';
 
 interface PLCDetailScreenProps {
   plcName: string;
   onBack?: () => void;
+  /** เปิดโฟลว์สร้าง/แชร์บันทึกใหม่เข้า PLC นี้ */
+  onShareNewNote?: () => void;
 }
 
-const mockRecords: SharedRecord[] = [
-  {
-    id: '1',
-    title: 'แนวทางการจัดการเรียนรู้แบบ Active Learning',
-    owner: 'ครูสมชาย',
-    tags: ['การสอน', 'Active Learning'],
-    commentCount: 8,
-    isOwner: true
-  },
-  {
-    id: '2',
-    title: 'การใช้เทคโนโลยีในการสอนคณิตศาสตร์',
-    owner: 'ครูสมหญิง',
-    tags: ['การสอน', 'เทคโนโลยี'],
-    commentCount: 5,
-    isOwner: false
-  },
-  {
-    id: '3',
-    title: 'แนวทางแก้ปัญหานักเรียนอ่านไม่ออกเขียนไม่ได้',
-    owner: 'ครูวิชัย',
-    tags: ['PLC', 'การอ่าน'],
-    commentCount: 12,
-    isOwner: false
-  },
-  {
-    id: '4',
-    title: 'สรุปการประชุม PLC เดือน ธ.ค. 69',
-    tags: ['ประชุม', 'สรุป'],
-    commentCount: 3,
-    isOwner: false
-  }
-];
-
-export function PLCDetailScreen({ plcName, onBack }: PLCDetailScreenProps) {
+export function PLCDetailScreen({ plcName, onBack, onShareNewNote }: PLCDetailScreenProps) {
   const [activeTab, setActiveTab] = useState<TabType>('shared');
   const isPLCLead = true; // Mock: current user is PLC lead
   const { confirm: confirmDialog } = useConfirm();
+  const { notes, refresh } = useNotes();
+  const { user } = useAuthContext();
+  const plcId = useMemo(() => getPlcIdByName(plcName), [plcName]);
+
+  // ห้องสนทนา PLC (เก็บใน localStorage ตาม plcId)
+  const { messages: chatMessages, sendMessage } = usePLCChat(
+    plcId ?? undefined,
+    user?.id ?? 'anonymous',
+    user?.full_name || user?.email || 'ผู้ใช้'
+  );
+  const [chatInput, setChatInput] = useState('');
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    refresh();
+  }, [plcName, refresh]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
+  // ดึงเฉพาะบันทึกที่แชร์มาในกลุ่ม PLC นี้ (จาก shared_to_plc_id)
+  const sharedRecords: SharedRecord[] = useMemo(() => {
+    if (!plcId) return [];
+
+    const filtered = notes.filter(
+      (n) => n.visibility === 'PLC' && n.shared_to_plc_id === plcId
+    );
+
+    return filtered.map((n) => ({
+      id: n.id,
+      title: n.title || 'ไม่มีชื่อ',
+      owner: user?.full_name || user?.email || undefined,
+      tags: n.tags || [],
+      commentCount: 0,
+      isOwner: true
+    }));
+  }, [notes, plcId, user?.full_name, user?.email]);
 
   const handleProposeToSchool = (recordId: string, recordTitle: string) => {
     confirmDialog({
@@ -115,7 +125,12 @@ export function PLCDetailScreen({ plcName, onBack }: PLCDetailScreenProps) {
       <div className="flex-1 overflow-auto pb-20">
         {activeTab === 'shared' && (
           <div className="p-4 space-y-3">
-            {mockRecords.map((record) => (
+            {sharedRecords.length === 0 && (
+              <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-500 text-sm">
+                ยังไม่มีบันทึกที่แชร์ในกลุ่มนี้
+              </div>
+            )}
+            {sharedRecords.map((record) => (
               <div
                 key={record.id}
                 className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow"
@@ -164,13 +179,85 @@ export function PLCDetailScreen({ plcName, onBack }: PLCDetailScreenProps) {
         )}
 
         {activeTab === 'discussion' && (
-          <div className="p-4">
-            <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-              <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <h3 className="text-gray-900 mb-2">ห้องสนทนา PLC</h3>
-              <p className="text-sm text-gray-600">
-                พูดคุยและแลกเปลี่ยนความคิดเห็นกับสมาชิก PLC
-              </p>
+          <div className="flex flex-col h-full">
+            {/* รายการข้อความ */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px]">
+              {chatMessages.length === 0 ? (
+                <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
+                  <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <h3 className="text-gray-900 font-medium mb-1">ห้องสนทนา PLC</h3>
+                  <p className="text-sm text-gray-600 mb-2">
+                    พูดคุยและแลกเปลี่ยนความคิดเห็นกับสมาชิก PLC
+                  </p>
+                  <p className="text-xs text-gray-500">พิมพ์ข้อความด้านล่างเพื่อเริ่มสนทนา</p>
+                </div>
+              ) : (
+                chatMessages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex flex-col max-w-[85%] ${
+                      msg.senderId === (user?.id ?? 'anonymous')
+                        ? 'ml-auto items-end'
+                        : 'mr-auto items-start'
+                    }`}
+                  >
+                    <span className="text-xs text-gray-500 mb-0.5 px-1">
+                      {msg.senderName}
+                    </span>
+                    <div
+                      className={`rounded-2xl px-4 py-2.5 text-sm ${
+                        msg.senderId === (user?.id ?? 'anonymous')
+                          ? 'bg-blue-600 text-white rounded-br-md'
+                          : 'bg-gray-200 text-gray-900 rounded-bl-md'
+                      }`}
+                    >
+                      {msg.body}
+                    </div>
+                    <span className="text-[10px] text-gray-400 mt-0.5">
+                      {new Date(msg.createdAt).toLocaleTimeString('th-TH', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                ))
+              )}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* ช่องพิมพ์ข้อความ */}
+            <div className="flex-none p-3 bg-white border-t border-gray-200 safe-area-bottom">
+              <div className="flex gap-2 items-end">
+                <textarea
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (chatInput.trim()) {
+                        sendMessage(chatInput);
+                        setChatInput('');
+                      }
+                    }
+                  }}
+                  placeholder="พิมพ์ข้อความ..."
+                  rows={1}
+                  className="flex-1 min-h-[44px] max-h-24 px-4 py-3 rounded-xl border border-gray-300 text-base resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (chatInput.trim()) {
+                      sendMessage(chatInput);
+                      setChatInput('');
+                    }
+                  }}
+                  disabled={!chatInput.trim()}
+                  className="shrink-0 h-[44px] w-[44px] rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white transition-colors"
+                >
+                  <Send className="w-5 h-5" />
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -188,12 +275,12 @@ export function PLCDetailScreen({ plcName, onBack }: PLCDetailScreenProps) {
                   <h4 className="text-sm text-gray-900 mb-2">📈 สถิติการมีส่วนร่วม</h4>
                   <div className="grid grid-cols-2 gap-3 text-center">
                     <div>
-                      <p className="text-2xl text-blue-600">{mockRecords.length}</p>
+                      <p className="text-2xl text-blue-600">{sharedRecords.length}</p>
                       <p className="text-xs text-gray-600">บันทึกที่แชร์</p>
                     </div>
                     <div>
                       <p className="text-2xl text-green-600">
-                        {mockRecords.reduce((sum, r) => sum + r.commentCount, 0)}
+                        {sharedRecords.reduce((sum, r) => sum + r.commentCount, 0)}
                       </p>
                       <p className="text-xs text-gray-600">ความคิดเห็น</p>
                     </div>
@@ -225,7 +312,11 @@ export function PLCDetailScreen({ plcName, onBack }: PLCDetailScreenProps) {
 
       {/* Floating Action Button */}
       {activeTab === 'shared' && (
-        <button className="absolute bottom-6 right-4 bg-blue-600 hover:bg-blue-700 text-white pl-4 pr-5 py-3 rounded-full shadow-lg flex items-center gap-2 transition-all z-20">
+        <button
+          type="button"
+          onClick={() => onShareNewNote?.()}
+          className="absolute bottom-6 right-4 bg-blue-600 hover:bg-blue-700 text-white pl-4 pr-5 py-3 rounded-full shadow-lg flex items-center gap-2 transition-all z-20"
+        >
           <Plus className="w-5 h-5" />
           <span className="text-sm">แชร์บันทึกของฉันเข้า PLC</span>
         </button>

@@ -37,6 +37,8 @@ export interface StoredNote {
   source?: 'typed' | 'voice';
   /** คำเสนอแนะและคำชี้แนะจาก AI (บันทึกพร้อมบันทึกเสียง) */
   ai_reflection?: AIReflectionStored;
+  /** กลุ่ม PLC ที่แชร์ไป (เมื่อ visibility = 'PLC') เช่น plc-thai */
+  shared_to_plc_id?: string;
 }
 
 // ---- Transcript & Review ----
@@ -120,6 +122,16 @@ export interface AuditLog {
 
 // ---- PLC ----
 export type TabType = 'shared' | 'discussion' | 'insights';
+
+/** ข้อความในห้องสนทนา PLC (เก็บใน localStorage หรือ Supabase) */
+export interface PLCChatMessage {
+  id: string;
+  plcId: string;
+  senderId: string;
+  senderName: string;
+  body: string;
+  createdAt: string;
+}
 
 export interface SharedRecord {
   id: string;

@@ -1,0 +1,151 @@
+/**
+ * 3D Mobile-First Theme — Light & Dark
+ * Tailwind v4 CSS-first. Use dark: variants; toggle .dark on html or parent.
+ * WCAG AA contrast; gradients/shadows for depth.
+ */
+
+/* ========== LIGHT MODE ========== */
+:root {
+  /* Primary — blue, strong CTA */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-foreground: #ffffff;
+  /* Secondary — slate */
+  --secondary: #475569;
+  --secondary-hover: #334155;
+  --secondary-foreground: #ffffff;
+  /* Accent — subtle highlight */
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  /* Background & surface */
+  --background: #f8fafc;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  /* Text */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  /* Semantic */
+  --success: #059669;
+  --success-foreground: #ffffff;
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
+  --error: #dc2626;
+  --error-foreground: #ffffff;
+  /* 3D shadows — Light (elevated, neumorphic) */
+  --shadow-elevated: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+  --shadow-card: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  --shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+  --shadow-button: 0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+  --shadow-button-pressed: 0 1px 2px 0 rgba(0, 0, 0, 0.1) inset;
+  /* Focus ring — accessibility */
+  --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.35);
+  /* Compatibility with existing tokens */
+  --foreground: var(--text-primary);
+}
+
+/* ========== DARK MODE ========== */
+.dark {
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --primary-foreground: #0f172a;
+  --secondary: #94a3b8;
+  --secondary-hover: #cbd5e1;
+  --secondary-foreground: #0f172a;
+  --accent: #1e293b;
+  --accent-foreground: #f8fafc;
+  --background: #0f172a;
+  --surface: #1e293b;
+  --card: #1e293b;
+  --card-foreground: #f8fafc;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #0f172a;
+  --error: #ef4444;
+  --error-foreground: #ffffff;
+  /* 3D shadows — Dark (glow, floating) */
+  --shadow-elevated: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
+  --shadow-card: 0 10px 15px -3px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-button: 0 2px 4px -1px rgba(0, 0, 0, 0.3), 0 0 20px -5px rgba(59, 130, 246, 0.25);
+  --shadow-button-pressed: 0 1px 2px 0 rgba(0, 0, 0, 0.4) inset;
+  --focus-ring: 0 0 0 3px rgba(59, 130, 246, 0.45);
+  --foreground: var(--text-primary);
+}
+
+/* Semantic color utilities (use when Tailwind theme doesn't expose these) */
+.bg-theme-bg { background-color: var(--background); }
+.bg-theme-primary { background-color: var(--primary); }
+.bg-theme-success { background-color: var(--success); }
+.bg-theme-warning { background-color: var(--warning); }
+.bg-theme-error { background-color: var(--error); }
+.bg-theme-surface { background-color: var(--surface); }
+.bg-surface { background-color: var(--surface); }
+.text-theme-primary { color: var(--text-primary); }
+.text-theme-secondary { color: var(--text-secondary); }
+.text-theme-muted { color: var(--text-muted); }
+/* Component aliases (Tailwind doesn't expose text-primary etc.) */
+.text-text-primary { color: var(--text-primary); }
+.text-text-secondary { color: var(--text-secondary); }
+.text-text-muted { color: var(--text-muted); }
+.text-primary-foreground { color: var(--primary-foreground); }
+.text-error { color: var(--error); }
+.border-primary { border-color: var(--primary); }
+.border-error { border-color: var(--error); }
+
+/* ========== GRADIENT UTILITIES (depth) ========== */
+.gradient-surface {
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in oklab, var(--surface) 85%, var(--background)) 100%);
+}
+
+.gradient-primary {
+  background: linear-gradient(135deg, var(--primary) 0%, color-mix(in oklab, var(--primary) 80%, black) 100%);
+}
+
+.gradient-card-3d {
+  background: linear-gradient(180deg, color-mix(in oklab, var(--card) 98%, white) 0%, var(--card) 100%);
+}
+
+.dark .gradient-card-3d {
+  background: linear-gradient(180deg, color-mix(in oklab, var(--card) 110%, white) 0%, var(--card) 100%);
+}
+
+/* ========== SHADOW UTILITY CLASSES ========== */
+.shadow-elevated {
+  box-shadow: var(--shadow-elevated);
+}
+
+.shadow-card-3d {
+  box-shadow: var(--shadow-card);
+}
+
+.shadow-modal-3d {
+  box-shadow: var(--shadow-modal);
+}
+
+.shadow-button-3d {
+  box-shadow: var(--shadow-button);
+}
+
+.shadow-button-pressed {
+  box-shadow: var(--shadow-button-pressed);
+}
+
+.focus-ring-3d:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* ========== TOUCH-FRIENDLY RADIUS ========== */
+.radius-touch {
+  border-radius: 1rem; /* 16px */
+}
+
+.radius-touch-lg {
+  border-radius: 1.25rem; /* 20px */
+}

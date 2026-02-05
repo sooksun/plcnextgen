@@ -46,7 +46,8 @@ function mapRowToNote(row: any): StoredNote {
     timestamp: date,
     tags: Array.isArray(row.tags) ? row.tags : [],
     source: row.source || 'voice',
-    ai_reflection: hasAiReflection ? (ai_reflection as StoredNote['ai_reflection']) : undefined
+    ai_reflection: hasAiReflection ? (ai_reflection as StoredNote['ai_reflection']) : undefined,
+    shared_to_plc_id: row.shared_to_plc_id || undefined
   };
 }
 
@@ -97,7 +98,8 @@ async function loadNotesFromSupabase(): Promise<StoredNote[]> {
 
 async function insertNoteToSupabase(note: StoredNote): Promise<string | null> {
   if (!supabase) return null;
-  const fullPayload: Record<string, unknown> = {
+
+  const basePayload: Record<string, unknown> = {
     transcript: note.content,
     title: note.title,
     content: note.content,
@@ -106,21 +108,52 @@ async function insertNoteToSupabase(note: StoredNote): Promise<string | null> {
     source: note.source,
     tags: note.tags || []
   };
-  if (note.ai_reflection) fullPayload.ai_reflection = note.ai_reflection;
+  if (note.ai_reflection) basePayload.ai_reflection = note.ai_reflection;
+
+  // ลอง insert แบบเต็ม (รวม shared_to_plc_id)
+  const fullPayload = { ...basePayload };
+  if (note.shared_to_plc_id) fullPayload.shared_to_plc_id = note.shared_to_plc_id;
+
   const { data, error } = await supabase.from('notes').insert(fullPayload).select('id').single();
-  if (error) {
+
+  if (!error) {
+    return data?.id || null;
+  }
+
+  // ถ้า error น่าจะเป็นเพราะคอลัมน์ shared_to_plc_id ยังไม่มี → ลอง insert โดยไม่ใส่คอลัมน์นี้
+  const maybeMissingColumn =
+    error.message?.includes('shared_to_plc_id') ||
+    error.message?.includes('column') ||
+    error.code === '42703';
+
+  if (maybeMissingColumn && note.shared_to_plc_id) {
+    console.warn(
+      '[useNotes] Supabase insert with shared_to_plc_id failed (อาจยังไม่มีคอลัมน์). ลอง insert โดยไม่ใส่ shared_to_plc_id. Error:',
+      error.message
+    );
     const { data: data2, error: error2 } = await supabase
       .from('notes')
-      .insert({ transcript: note.content })
+      .insert(basePayload)
       .select('id')
       .single();
-    if (error2) {
-      console.error('Supabase insert error:', error2);
-      return null;
+    if (!error2) {
+      console.warn('[useNotes] บันทึกสำเร็จแต่ไม่มี shared_to_plc_id. กรุณารัน migration ใน Supabase (ดู supabase/migrations)');
+      return data2?.id || null;
     }
-    return data2?.id || null;
   }
-  return data?.id || null;
+
+  // fallback สุดท้าย: insert เฉพาะ transcript
+  console.error('Supabase insert error:', error.message, error.code);
+  const { data: data3, error: error3 } = await supabase
+    .from('notes')
+    .insert({ transcript: note.content, title: note.title, visibility: note.visibility })
+    .select('id')
+    .single();
+  if (!error3) {
+    return data3?.id || null;
+  }
+  console.error('Supabase insert fallback error:', error3.message);
+  return null;
 }
 
 async function updateNoteInSupabase(id: string, patch: Partial<StoredNote>): Promise<boolean> {
@@ -138,6 +171,7 @@ async function updateNoteInSupabase(id: string, patch: Partial<StoredNote>): Pro
   if (patch.tags !== undefined) fullUpdateData.tags = patch.tags;
   if (patch.source !== undefined) fullUpdateData.source = patch.source;
   if (patch.ai_reflection !== undefined) fullUpdateData.ai_reflection = patch.ai_reflection;
+  if (patch.shared_to_plc_id !== undefined) fullUpdateData.shared_to_plc_id = patch.shared_to_plc_id;
   fullUpdateData.updated_at = new Date().toISOString();
 
   // ลอง update แบบเต็มก่อน
@@ -253,17 +287,28 @@ export function useNotes() {
       timestamp: note.timestamp ?? note.date,
       tags: note.tags,
       source: note.source,
-      ...(note.ai_reflection && { ai_reflection: note.ai_reflection })
+      ...(note.ai_reflection && { ai_reflection: note.ai_reflection }),
+      ...(note.shared_to_plc_id && { shared_to_plc_id: note.shared_to_plc_id })
     };
 
     if (isSupabaseAvailable) {
       const newId = await insertNoteToSupabase(full);
       if (newId) {
+        // กรณี insert แบบ fallback (ไม่มีคอลัมน์ shared_to_plc_id) โน้ตใน DB จะไม่มี shared_to_plc_id
+        // อัปเดตให้ชัดเจนเพื่อให้แสดงใน PLC ได้
+        if (full.shared_to_plc_id || full.visibility === 'PLC') {
+          await updateNoteInSupabase(String(newId), {
+            visibility: full.visibility,
+            ...(full.shared_to_plc_id && { shared_to_plc_id: full.shared_to_plc_id })
+          });
+        }
         await refresh();
         return newId;
       }
+      // Supabase insert ล้มเหลว → บันทึกลง localStorage เพื่อไม่ให้ข้อมูลหาย
+      console.warn('[useNotes] Supabase insert ไม่สำเร็จ บันทึกลง localStorage แทน');
     }
-    // Fallback to localStorage
+    // ใช้ Supabase หรือ fallback ไป localStorage
     setNotes((prev) => {
       const next = [full, ...prev];
       saveNotesToStorage(next);

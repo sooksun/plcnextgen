@@ -1,4 +1,4 @@
-import { ArrowLeft, Square } from 'lucide-react';
+import { ArrowLeft, Square, X } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import type { RecordState, RecordType } from '@/types';
@@ -174,6 +174,22 @@ export function RecordCaptureScreen({ onBack, onComplete }: RecordCaptureScreenP
     }
   }, [clearChunks, onComplete]);
 
+  /** ยกเลิกการบันทึก: ลบข้อมูลที่บันทึกไว้ ไม่ไปหน้าสรุป และกลับหน้าหลัก */
+  const handleCancel = useCallback(() => {
+    stopRecognition();
+    clearChunks();
+    resetTranscript();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('temp_transcript');
+      localStorage.removeItem('temp_type_note_title');
+      localStorage.removeItem('temp_type_note_meta');
+    }
+    setRecordState('idle');
+    setTime(0);
+    toast.info('ยกเลิกการบันทึกแล้ว');
+    if (onBack) onBack();
+  }, [stopRecognition, clearChunks, resetTranscript, onBack]);
+
   // Memoized display text to reduce re-computation
   const displayText = (fullTranscript + ' ' + currentTranscript).trim();
 
@@ -231,14 +247,24 @@ export function RecordCaptureScreen({ onBack, onComplete }: RecordCaptureScreenP
               </button>
             )}
 
-            {/* Save Button */}
+            {/* Save / Cancel เมื่อหยุดบันทึกแล้ว */}
             {recordState === 'stopped' && time > 0 && (
-              <button
-                onClick={handleSave}
-                className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors shadow-lg animate-in fade-in zoom-in duration-300"
-              >
-                <span className="text-sm font-medium">บันทึกและดูสรุป</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="flex items-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full transition-colors border border-gray-300 animate-in fade-in zoom-in duration-300"
+                >
+                  <X className="w-4 h-4" />
+                  <span className="text-sm font-medium">ยกเลิก</span>
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors shadow-lg animate-in fade-in zoom-in duration-300"
+                >
+                  <span className="text-sm font-medium">บันทึกและดูสรุป</span>
+                </button>
+              </>
             )}
           </div>
 

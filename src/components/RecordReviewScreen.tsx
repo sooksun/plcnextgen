@@ -89,7 +89,7 @@ export function RecordReviewScreen({ onBack, onShareDecision }: RecordReviewScre
     }
   ];
 
-  const saveRecord = async (visibility: string) => {
+  const saveRecord = async (visibility: string, plcId?: string) => {
     const content = realTranscript || transcriptLines.map(l => l.text).join(' ');
     let type = 'ประชุม';
     let tags: string[] = ['Voice Note'];
@@ -103,16 +103,18 @@ export function RecordReviewScreen({ onBack, onShareDecision }: RecordReviewScre
     } catch {
       // ignore
     }
+    const visibilityLabel = visibility === 'private' ? 'ส่วนตัว' : (visibility === 'plc' ? 'PLC' : 'ข้อเสนอ');
     const newRecord = {
       title: title,
       content: content,
       type,
-      visibility: visibility === 'private' ? 'ส่วนตัว' : (visibility === 'plc' ? 'PLC' : 'ข้อเสนอ'),
+      visibility: visibilityLabel,
       date: new Date().toISOString(),
       timestamp: new Date().toISOString(),
       tags,
       source: (localStorage.getItem('temp_type_note_title') ? 'typed' : 'voice') as 'typed' | 'voice',
-      ...(aiReflection && { ai_reflection: aiReflection })
+      ...(aiReflection && { ai_reflection: aiReflection }),
+      ...(visibility === 'plc' && plcId && { shared_to_plc_id: plcId })
     };
 
     await addNote(newRecord);
@@ -124,11 +126,10 @@ export function RecordReviewScreen({ onBack, onShareDecision }: RecordReviewScre
 
   const handleShareDecision = async (level: string, plcId?: string) => {
     setShowShareModal(false);
-    
-    // Save first
-    await saveRecord(level);
 
-    // Then navigate
+    // บันทึกพร้อมกลุ่ม PLC ที่แชร์ (shared_to_plc_id)
+    await saveRecord(level, plcId);
+
     if (onShareDecision) {
       onShareDecision(level, plcId);
     }

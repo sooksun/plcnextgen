@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Card, CardContent } from './ui/card';
+import { Button3D, Input3D } from './ui/theme-3d';
 
 interface LoginScreenProps {
   onLogin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -34,101 +32,94 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-theme-bg flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo & Title */}
         <div className="text-center mb-8">
           <img src="/logo.png" alt="School KM" className="w-10 h-10 mx-auto mb-4 object-contain" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">School KM</h1>
-          <p className="text-gray-600">ระบบจัดการความรู้โรงเรียน</p>
+          <h1 className="text-2xl font-bold text-text-primary mb-1">School KM</h1>
+          <p className="text-text-secondary">ระบบจัดการความรู้โรงเรียน</p>
         </div>
 
-        {/* Login Card */}
-        <Card className="shadow-lg border-0">
-          <CardContent className="p-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                  อีเมล
-                </label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="teacher@school.ac.th"
-                  className="w-full"
-                  disabled={isLoading}
-                  autoComplete="email"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                  รหัสผ่าน
-                </label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pr-10"
-                    disabled={isLoading}
-                    autoComplete="current-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
-                  {error}
-                </div>
-              )}
-
-              <Button
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3"
+        {/* Login Card — theme-3d */}
+        <div className="gradient-card-3d shadow-card-3d rounded-2xl p-6 radius-touch-lg">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-text-primary mb-1">
+                อีเมล
+              </label>
+              <Input3D
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="teacher@school.ac.th"
                 disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    กำลังเข้าสู่ระบบ...
-                  </>
-                ) : (
-                  'เข้าสู่ระบบ'
-                )}
-              </Button>
-            </form>
+                autoComplete="email"
+              />
+            </div>
 
-            {/* Demo Credentials */}
-            <div className="mt-6 pt-4 border-t border-gray-100">
-              <p className="text-xs text-gray-500 text-center mb-2">บัญชีทดสอบ</p>
-              <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 space-y-1">
-                <div className="flex justify-between">
-                  <span className="font-medium">ครู:</span>
-                  <span>teacher@demo.com / demo1234</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium">Curator:</span>
-                  <span>admin@demo.com / demo1234</span>
-                </div>
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-text-primary mb-1">
+                รหัสผ่าน
+              </label>
+              <div className="relative">
+                <Input3D
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  disabled={isLoading}
+                  autoComplete="current-password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
-          </CardContent>
-        </Card>
+
+            {error && (
+              <div className="bg-theme-error/10 border border-[var(--error)] text-[var(--error)] text-sm rounded-xl p-3">
+                {error}
+              </div>
+            )}
+
+            <Button3D type="submit" fullWidth size="lg" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  กำลังเข้าสู่ระบบ...
+                </>
+              ) : (
+                'เข้าสู่ระบบ'
+              )}
+            </Button3D>
+          </form>
+
+          {/* Demo Credentials */}
+          <div className="mt-6 pt-4 border-t border-black/5 dark:border-white/10">
+            <p className="text-xs text-text-muted text-center mb-2">บัญชีทดสอบ</p>
+            <div className="bg-accent rounded-xl p-3 text-xs text-text-secondary space-y-1">
+              <div className="flex justify-between">
+                <span className="font-medium">ครู:</span>
+                <span>teacher@demo.com / demo1234</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium">Curator:</span>
+                <span>admin@demo.com / demo1234</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Footer */}
-        <p className="text-center text-xs text-gray-400 mt-6">
+        <p className="text-center text-xs text-text-muted mt-6">
           © 2569 School KM - ระบบจัดการความรู้
         </p>
       </div>
