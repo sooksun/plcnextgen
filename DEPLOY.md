@@ -24,12 +24,18 @@ docker compose version
 cd /path/to/plcnextgen
 ```
 
-สร้างไฟล์ `.env` จากค่าที่ใช้อยู่ (หรือคัดลอกจาก `.env` ในเครื่องพัฒนา):
+**สำคัญ:** สร้างไฟล์ `.env` **บน server** (ต้องมีก่อน build):
 
 ```bash
-# ต้องมี 2 ค่านี้เพื่อ build (Vite จะฝังลงในแอป)
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
+cp .env.example .env
+nano .env   # หรือ vi .env
+```
+
+แก้ให้เป็นค่า Supabase จริง (ห้ามเว้นว่าง):
+
+```env
+VITE_SUPABASE_URL=https://xxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9....
 ```
 
 Build และรัน:
@@ -38,13 +44,30 @@ Build และรัน:
 docker compose up -d --build
 ```
 
-เปิดใช้ที่ `http://<IP-server>:3000` (หรือพอร์ตที่ map ใน `docker-compose.yml`)
+เปิดใช้ที่ **`http://<IP-server>:9902`** (พอร์ตใน docker-compose คือ 9902 → 80 ใน container)
 
 หยุด:
 
 ```bash
 docker compose down
 ```
+
+---
+
+## 1.1 ทำไมบน server เปิดแล้วไม่ขึ้น / ใช้ไม่ได้
+
+| อาการ | สาเหตุ | วิธีแก้ |
+|--------|--------|--------|
+| หน้าเปล่า / ขาว | Build ครั้งที่รันบน server **ไม่มีไฟล์ .env** หรือค่า VITE_* ว่าง | สร้าง `.env` บน server ให้มี `VITE_SUPABASE_URL` และ `VITE_SUPABASE_ANON_KEY` แล้วรัน `docker compose up -d --build` ใหม่ |
+| 404 ตอนกด refresh หรือเปิด URL ย่อย | Nginx ไม่ได้ส่งทุก path ไปที่ index.html | ใช้ Dockerfile ล่าสุดที่มี `nginx.conf` (SPA fallback) แล้ว build ใหม่ |
+| ล็อกอิน/โหลดข้อมูลไม่ได้ | แอปถูก build โดยไม่มีค่า Supabase (ฝังลง bundle ตอน build) | Build ใหม่บน server **หลัง**สร้าง/แก้ `.env` แล้วสั่ง `docker compose build --no-cache` จากนั้น `docker compose up -d` |
+| เปิดได้แต่พอร์ตไม่ตรง | พอร์ตใน docker-compose เป็น 9902 | เปิด `http://<IP>:9902` (ไม่ใช่ 3000; 3000 เป็นแค่ตอนรัน `npm run dev` บนเครื่องตัวเอง) |
+
+**เช็คลิสต์บน server ก่อน build:**
+1. มีไฟล์ `.env` ในโฟลเดอร์โปรเจกต์ (เดียวกับ `docker-compose.yml`)
+2. ใน `.env` มี `VITE_SUPABASE_URL` และ `VITE_SUPABASE_ANON_KEY` ไม่ว่าง
+3. รัน `docker compose up -d --build` จากโฟลเดอร์เดียวกัน
+4. เปิดด้วยพอร์ตที่ map ไว้ (เช่น 9902)
 
 ---
 

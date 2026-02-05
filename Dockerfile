@@ -24,16 +24,7 @@ RUN apk add --no-cache tzdata \
   && echo "Asia/Bangkok" > /etc/timezone
 
 COPY --from=builder /app/build /usr/share/nginx/html
-
-# SPA: fallback to index.html for client-side routing
-RUN echo 'server { \
-  listen 80; \
-  root /usr/share/nginx/html; \
-  index index.html; \
-  location / { try_files $uri $uri/ /index.html; } \
-  location /favicon.ico { try_files $uri =404; } \
-  gzip on; \
-}' > /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 
