@@ -171,10 +171,6 @@ function AppContent() {
         <PLCDetailScreen
           plcName={selectedPLC}
           onBack={() => setSelectedPLC(null)}
-          onShareNewNote={() => {
-            setSelectedPLC(null);
-            setShowTypeNote(true);
-          }}
         />
       );
     }
