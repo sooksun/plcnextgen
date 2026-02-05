@@ -6,17 +6,19 @@ import { useNotes } from '@/hooks/useNotes';
 import { usePLCChat } from '@/hooks/usePLCChat';
 import { getPlcIdByName } from '@/data/plcGroups';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { ShareNoteToPLCModal } from './ShareNoteToPLCModal';
 import type { TabType, SharedRecord } from '@/types';
 
 interface PLCDetailScreenProps {
   plcName: string;
   onBack?: () => void;
-  /** เปิดโฟลว์สร้าง/แชร์บันทึกใหม่เข้า PLC นี้ */
+  /** เปิดโฟลว์สร้าง/แชร์บันทึกใหม่เข้า PLC นี้ (optional, ถ้าไม่ส่งจะใช้ modal ในตัว) */
   onShareNewNote?: () => void;
 }
 
 export function PLCDetailScreen({ plcName, onBack, onShareNewNote }: PLCDetailScreenProps) {
   const [activeTab, setActiveTab] = useState<TabType>('shared');
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const { confirm: confirmDialog } = useConfirm();
   const { notes, refresh } = useNotes();
   const { user } = useAuthContext();
@@ -322,7 +324,13 @@ export function PLCDetailScreen({ plcName, onBack, onShareNewNote }: PLCDetailSc
       {activeTab === 'shared' && (
         <button
           type="button"
-          onClick={() => onShareNewNote?.()}
+          onClick={() => {
+            if (onShareNewNote) {
+              onShareNewNote();
+            } else {
+              setIsShareModalOpen(true);
+            }
+          }}
           className="absolute bottom-6 right-4 z-30 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white pl-4 pr-5 py-3 rounded-full shadow-lg flex items-center gap-2 transition-all cursor-pointer touch-manipulation select-none"
           aria-label="แชร์บันทึกของฉันเข้า PLC"
         >
@@ -330,6 +338,14 @@ export function PLCDetailScreen({ plcName, onBack, onShareNewNote }: PLCDetailSc
           <span className="text-sm">แชร์บันทึกของฉันเข้า PLC</span>
         </button>
       )}
+
+      {/* Share Note to PLC Modal */}
+      <ShareNoteToPLCModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        targetPlcId={plcId}
+        onSuccess={refresh}
+      />
     </div>
   );
 }
