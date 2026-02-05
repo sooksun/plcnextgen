@@ -1,7 +1,9 @@
 import { ArrowLeft, Search, Filter, Eye, Copy, Info } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import { useConfirm } from '@/contexts/ConfirmContext';
+import { useNotes } from '@/hooks/useNotes';
+import { useAuthContext } from '@/contexts/AuthContext';
 import type { ArchivedItem } from '@/types';
 
 interface KnowledgeLibraryScreenProps {
@@ -10,80 +12,6 @@ interface KnowledgeLibraryScreenProps {
   onCopyAsNew?: (id: string, title: string) => void;
 }
 
-const mockArchivedItems: ArchivedItem[] = [
-  {
-    id: '1',
-    title: 'Active Learning ในคณิตศาสตร์',
-    summary: 'การจัดการเรียนรู้แบบ Active Learning โดยใช้กิจกรรมกลุ่มย่อย การอ้างอิงจากสถานการณ์จริง และการนำเสนอหน้าชั้นเรียน',
-    tags: ['การสอน', 'Active Learning', 'คณิตศาสตร์'],
-    academicYear: '2568',
-    archivedDate: '2569-03-15',
-    originalStatus: 'แนะนำให้ใช้',
-    submittedBy: 'ครูสมชาย'
-  },
-  {
-    id: '2',
-    title: 'โครงการอาหารเช้าเพื่อสุขภาพ',
-    summary: 'จัดอาหารเช้าคุณภาพให้นักเรียน เน้นโภชนาการครบถ้วน ลดปัญหานักเรียนไม่ทานอาหารเช้า',
-    tags: ['สุขภาพ', 'โภชนาการ', 'นักเรียน'],
-    academicYear: '2568',
-    archivedDate: '2569-03-15',
-    originalStatus: 'ทดลองแล้ว',
-    submittedBy: 'ครูนิภา'
-  },
-  {
-    id: '3',
-    title: 'การใช้ Google Classroom ในการสอน',
-    summary: 'นำเทคโนโลยีมาช่วยในการจัดการเรียนการสอน มอบหมายงาน และติดตามผลการเรียน',
-    tags: ['เทคโนโลยี', 'Google Classroom', 'การสอน'],
-    academicYear: '2567',
-    archivedDate: '2568-03-20',
-    originalStatus: 'แนะนำให้ใช้',
-    submittedBy: 'ครูสมหญิง'
-  },
-  {
-    id: '4',
-    title: 'กิจกรรมกลุ่มสัมพันธ์ต้นปี',
-    summary: 'จัดกิจกรรมสร้างความสัมพันธ์ระหว่างนักเรียนต้นปีการศึกษา เพื่อสร้างบรรยากาศการเรียนรู้ที่ดี',
-    tags: ['PLC', 'กิจกรรม', 'นักเรียน'],
-    academicYear: '2568',
-    archivedDate: '2569-03-15',
-    originalStatus: 'แนะนำให้ใช้',
-    submittedBy: 'ครูสุดา'
-  },
-  {
-    id: '5',
-    title: 'แนวทางการสอนภาษาอังกฤษผ่านเพลง',
-    summary: 'ใช้เพลงเป็นสื่อการสอนภาษาอังกฤษ ช่วยให้นักเรียนจดจำคำศัพท์และรูปประโยคได้ง่ายขึ้น',
-    tags: ['การสอน', 'ภาษาอังกฤษ', 'สื่อการสอน'],
-    academicYear: '2567',
-    archivedDate: '2568-03-20',
-    originalStatus: 'ทดลองแล้ว',
-    submittedBy: 'ครูอนุชา'
-  },
-  {
-    id: '6',
-    title: 'โครงงานวิทยาศาสตร์เพื่อชุมชน',
-    summary: 'นักเรียนทำโครงงานวิทยาศาสตร์ที่ตอบโจทย์ปัญหาในชุมชนท้องถิ่น',
-    tags: ['วิทยาศาสตร์', 'โครงงาน', 'ชุมชน'],
-    academicYear: '2568',
-    archivedDate: '2569-03-15',
-    originalStatus: 'แนะนำให้ใช้',
-    submittedBy: 'ครูประเสริฐ'
-  }
-];
-
-const availableYears = ['2569', '2568', '2567', '2566'];
-const availableTags = [
-  'การสอน',
-  'PLC',
-  'เทคโนโลยี',
-  'Active Learning',
-  'สุขภาพ',
-  'วิทยาศาสตร์',
-  'ภาษาอังกฤษ',
-  'คณิตศาสตร์'
-];
 
 export function KnowledgeLibraryScreen({
   onBack,
@@ -95,6 +23,40 @@ export function KnowledgeLibraryScreen({
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const { confirm: confirmDialog } = useConfirm();
+  const { notes } = useNotes();
+  const { user } = useAuthContext();
+
+  // แปลง notes ที่มี visibility = 'ข้อเสนอ' เป็น ArchivedItem
+  const archivedItems: ArchivedItem[] = useMemo(() => {
+    return notes
+      .filter(n => n.visibility?.toUpperCase() === 'ข้อเสนอ' || n.visibility === 'ข้อเสนอ')
+      .map(n => {
+        const dateStr = n.date || n.timestamp || '';
+        const year = dateStr ? new Date(dateStr).getFullYear() + 543 : 2568; // แปลงเป็น พ.ศ.
+        return {
+          id: n.id,
+          title: n.title || 'ไม่มีชื่อ',
+          summary: n.content?.slice(0, 150) || '',
+          tags: n.tags || [],
+          academicYear: String(year),
+          archivedDate: dateStr,
+          originalStatus: 'ข้อเสนอ',
+          submittedBy: user?.full_name || 'ไม่ระบุ'
+        };
+      });
+  }, [notes, user?.full_name]);
+
+  // รวบรวมปีและ tags จากข้อมูลจริง
+  const availableYears = useMemo(() => {
+    const years = new Set(archivedItems.map(item => item.academicYear));
+    return Array.from(years).sort((a, b) => Number(b) - Number(a));
+  }, [archivedItems]);
+
+  const availableTags = useMemo(() => {
+    const tags = new Set<string>();
+    archivedItems.forEach(item => item.tags.forEach(tag => tags.add(tag)));
+    return Array.from(tags).slice(0, 10);
+  }, [archivedItems]);
 
   const handleCopyAsNew = (id: string, title: string) => {
     confirmDialog({
@@ -117,7 +79,7 @@ export function KnowledgeLibraryScreen({
     );
   };
 
-  const filteredItems = mockArchivedItems.filter(item => {
+  const filteredItems = archivedItems.filter(item => {
     const matchesSearch =
       item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.summary.toLowerCase().includes(searchQuery.toLowerCase());
@@ -324,10 +286,21 @@ export function KnowledgeLibraryScreen({
               <div className="text-gray-400 mb-2">
                 <Search className="w-12 h-12 mx-auto" />
               </div>
-              <p className="text-gray-600">ไม่พบข้อมูลที่ตรงกับการค้นหา</p>
-              <p className="text-sm text-gray-500 mt-1">
-                ลองปรับเปลี่ยนตัวกรองหรือคำค้นหา
-              </p>
+              {archivedItems.length === 0 ? (
+                <>
+                  <p className="text-gray-600">ยังไม่มีข้อเสนอในคลังความรู้</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    บันทึกที่แชร์เป็น "ข้อเสนอ" จะแสดงที่นี่
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-gray-600">ไม่พบข้อมูลที่ตรงกับการค้นหา</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    ลองปรับเปลี่ยนตัวกรองหรือคำค้นหา
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>

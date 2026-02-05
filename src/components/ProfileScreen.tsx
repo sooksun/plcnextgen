@@ -1,8 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { User, Mail, Phone, Settings, LogOut, Wifi, RefreshCw, Loader2 } from 'lucide-react';
 import { checkSupabaseConnection } from '@/lib/supabase';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { useNotes } from '@/hooks/useNotes';
+import { PLC_GROUPS } from '@/data/plcGroups';
 
-export function ProfileScreen() {
+interface ProfileScreenProps {
+  onLogout?: () => void;
+}
+
+export function ProfileScreen({ onLogout }: ProfileScreenProps) {
+  const { user, logout } = useAuthContext();
+  const { notes } = useNotes();
+
   const [supabaseStatus, setSupabaseStatus] = useState<{
     ok: boolean | null;
     message: string;
@@ -23,6 +33,32 @@ export function ProfileScreen() {
     testConnection();
   }, []);
 
+  // สถิติจากข้อมูลจริง
+  const stats = useMemo(() => {
+    const plcCount = PLC_GROUPS.length;
+    const noteCount = notes.length;
+    // นับความคิดเห็นจาก notes ที่แชร์เข้า PLC (ยังไม่มีระบบ comment จริง ใช้ 0)
+    const commentCount = 0;
+    return { plcCount, noteCount, commentCount };
+  }, [notes]);
+
+  // แปลง role เป็นภาษาไทย
+  const roleLabel = useMemo(() => {
+    if (!user?.role) return 'ผู้ใช้งาน';
+    const roleMap: Record<string, string> = {
+      ADMIN: 'ผู้ดูแลระบบ',
+      PRINCIPAL: 'ผู้อำนวยการ',
+      TEACHER: 'ครู',
+      USER: 'ผู้ใช้งาน'
+    };
+    return roleMap[user.role] || user.role;
+  }, [user?.role]);
+
+  const handleLogout = () => {
+    logout();
+    onLogout?.();
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* App Bar */}
@@ -39,19 +75,19 @@ export function ProfileScreen() {
               <User className="w-8 h-8 text-blue-600" />
             </div>
             <div className="ml-4">
-              <h2 className="text-gray-900">ครูสมชาย ใจดี</h2>
-              <p className="text-gray-500 text-sm">ครูชำนาญการ</p>
+              <h2 className="text-gray-900">{user?.full_name || 'ผู้ใช้งาน'}</h2>
+              <p className="text-gray-500 text-sm">{roleLabel}</p>
             </div>
           </div>
           
           <div className="space-y-3 pt-4 border-t border-gray-200">
             <div className="flex items-center text-gray-600">
               <Mail className="w-5 h-5 mr-3" />
-              <span className="text-sm">somchai@school.ac.th</span>
+              <span className="text-sm">{user?.email || '-'}</span>
             </div>
             <div className="flex items-center text-gray-600">
               <Phone className="w-5 h-5 mr-3" />
-              <span className="text-sm">089-123-4567</span>
+              <span className="text-sm">-</span>
             </div>
           </div>
         </div>
@@ -62,7 +98,10 @@ export function ProfileScreen() {
             <Settings className="w-5 h-5 text-gray-600 mr-3" />
             <span className="text-gray-900">ตั้งค่า</span>
           </button>
-          <button className="w-full flex items-center px-4 py-4 hover:bg-gray-50 transition-colors">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center px-4 py-4 hover:bg-gray-50 transition-colors"
+          >
             <LogOut className="w-5 h-5 text-red-600 mr-3" />
             <span className="text-red-600">ออกจากระบบ</span>
           </button>
@@ -73,15 +112,15 @@ export function ProfileScreen() {
           <h3 className="text-gray-900 mb-3">สถิติการใช้งาน</h3>
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <p className="text-2xl text-blue-600">6</p>
+              <p className="text-2xl text-blue-600">{stats.plcCount}</p>
               <p className="text-gray-600 text-xs">กลุ่ม PLC</p>
             </div>
             <div>
-              <p className="text-2xl text-green-600">42</p>
+              <p className="text-2xl text-green-600">{stats.noteCount}</p>
               <p className="text-gray-600 text-xs">เอกสาร</p>
             </div>
             <div>
-              <p className="text-2xl text-purple-600">128</p>
+              <p className="text-2xl text-purple-600">{stats.commentCount}</p>
               <p className="text-gray-600 text-xs">แสดงความคิดเห็น</p>
             </div>
           </div>

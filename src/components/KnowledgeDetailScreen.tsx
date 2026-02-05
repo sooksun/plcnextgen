@@ -1,10 +1,13 @@
 import { ArrowLeft, ExternalLink, AlertCircle } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import type { ProposalStatus, AuditLog } from '@/types';
+import { useNotes } from '@/hooks/useNotes';
+import { useAuthContext } from '@/contexts/AuthContext';
+import type { ProposalStatus } from '@/types';
 
 interface KnowledgeDetailScreenProps {
+  itemId?: string;
   onBack?: () => void;
 }
 
@@ -16,23 +19,16 @@ const statusConfig: Record<ProposalStatus, { label: string; color: string; bgCol
   PAUSED: { label: 'พักไว้ก่อน', color: 'text-gray-700', bgColor: 'bg-gray-100' }
 };
 
-const mockAuditLogs: AuditLog[] = [
-  {
-    id: '1',
-    timestamp: '2569-12-10 14:30',
-    action: 'ส่งข้อเสนอ',
-    actor: 'ครูสมชาย (PLC คณิตศาสตร์)'
-  },
-  {
-    id: '2',
-    timestamp: '2569-12-11 09:15',
-    action: 'ผอ.รับทราบและเปิดพิจารณา',
-    actor: 'ผอ.วิชัย',
-    note: 'น่าสนใจ ขอดูรายละเอียดเพิ่มเติม'
-  }
-];
+export function KnowledgeDetailScreen({ itemId, onBack }: KnowledgeDetailScreenProps) {
+  const { notes } = useNotes();
+  const { user } = useAuthContext();
+  
+  // ดึง note จาก itemId
+  const note = useMemo(() => {
+    if (!itemId) return null;
+    return notes.find(n => n.id === itemId);
+  }, [notes, itemId]);
 
-export function KnowledgeDetailScreen({ onBack }: KnowledgeDetailScreenProps) {
   const [currentStatus, setCurrentStatus] = useState<ProposalStatus>('PROPOSED');
   const [newStatus, setNewStatus] = useState<ProposalStatus>('PROPOSED');
   const [trialScope, setTrialScope] = useState('');
@@ -40,9 +36,19 @@ export function KnowledgeDetailScreen({ onBack }: KnowledgeDetailScreenProps) {
   const [curatorNote, setCuratorNote] = useState('');
   const { confirm: confirmDialog } = useConfirm();
   
+  // ดึงข้อมูลจาก note หรือใช้ค่าเริ่มต้น
+  const title = note?.title || 'ไม่มีชื่อ';
+  const content = note?.content || '';
+  const dateStr = note?.date || note?.timestamp || '';
+  const year = dateStr ? new Date(dateStr).getFullYear() + 543 : 2568;
+  const submittedBy = user?.full_name || 'ไม่ระบุ';
+  
+  // AI reflection จาก note
+  const aiReflection = note?.ai_reflection;
+  
   // Editable knowledge framework fields (for curator)
-  const [principle, setPrinciple] = useState('การจัดการเรียนรู้ที่เน้นผู้เรียนเป็นศูนย์กลาง');
-  const [practice, setPractice] = useState('ใช้กิจกรรมกลุ่มย่อยและการนำเสนอหน้าชั้นเรียน');
+  const [principle, setPrinciple] = useState('');
+  const [practice, setPractice] = useState('');
   const [contextNotes, setContextNotes] = useState('');
 
   const handleConfirmDecision = () => {
@@ -88,7 +94,7 @@ export function KnowledgeDetailScreen({ onBack }: KnowledgeDetailScreenProps) {
           <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
             <div className="flex items-start justify-between mb-3">
               <h2 className="text-gray-900 flex-1 pr-4">
-                แนวทางการจัดการเรียนรู้แบบ Active Learning
+                {title}
               </h2>
               <span className={`px-3 py-1 rounded-full text-xs whitespace-nowrap ${statusConfig[currentStatus].bgColor} ${statusConfig[currentStatus].color}`}>
                 {statusConfig[currentStatus].label}
@@ -98,7 +104,7 @@ export function KnowledgeDetailScreen({ onBack }: KnowledgeDetailScreenProps) {
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-gray-600">ปีการศึกษา:</span>
-                <span className="text-gray-900">2569</span>
+                <span className="text-gray-900">{year}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-gray-600">แหล่งที่มา:</span>
@@ -109,7 +115,7 @@ export function KnowledgeDetailScreen({ onBack }: KnowledgeDetailScreenProps) {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-gray-600">ส่งโดย:</span>
-                <span className="text-gray-900">ครูสมชาย (PLC คณิตศาสตร์)</span>
+                <span className="text-gray-900">{submittedBy}</span>
               </div>
             </div>
           </div>
@@ -121,32 +127,59 @@ export function KnowledgeDetailScreen({ onBack }: KnowledgeDetailScreenProps) {
               <h3 className="text-gray-900">AI Snapshot</h3>
             </div>
 
-            <div className="space-y-3 text-sm">
-              <div>
-                <h4 className="text-gray-700 mb-1">📌 ประเด็นสำคัญ</h4>
-                <ul className="list-disc list-inside text-gray-600 space-y-1 ml-2">
-                  <li>เพิ่มการมีส่วนร่วมของนักเรียนในชั้นเรียน</li>
-                  <li>พัฒนาทักษะการคิดวิเคราะห์และการแก้ปัญหา</li>
-                  <li>นักเรียนสามารถนำความรู้ไปประยุกต์ใช้ได้จริง</li>
-                </ul>
-              </div>
+            {aiReflection ? (
+              <div className="space-y-3 text-sm">
+                {aiReflection.keyPoints && aiReflection.keyPoints.length > 0 && (
+                  <div>
+                    <h4 className="text-gray-700 mb-1">📌 ประเด็นสำคัญ</h4>
+                    <ul className="list-disc list-inside text-gray-600 space-y-1 ml-2">
+                      {aiReflection.keyPoints.map((point, i) => (
+                        <li key={i}>{point}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
-              <div>
-                <h4 className="text-gray-700 mb-1">💡 ข้อเสนอหลัก</h4>
-                <p className="text-gray-600">
-                  จัดการเรียนรู้แบบ Active Learning โดยใช้กิจกรรมกลุ่มย่อย การอ้างอิงจากสถานการณ์จริง 
-                  และการนำเสนอหน้าชั้นเรียน เพื่อให้นักเรียนมีส่วนร่วมมากขึ้น
-                </p>
-              </div>
+                {aiReflection.suggestions && aiReflection.suggestions.length > 0 && (
+                  <div>
+                    <h4 className="text-gray-700 mb-1">💡 ข้อเสนอแนะ</h4>
+                    <ul className="list-disc list-inside text-gray-600 space-y-1 ml-2">
+                      {aiReflection.suggestions.map((sug, i) => (
+                        <li key={i}>{sug}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
-              <div>
-                <h4 className="text-gray-700 mb-1">📚 บริบท</h4>
-                <p className="text-gray-600">
-                  ทดลองใช้ในห้อง ม.2/1 วิชาคณิตศาสตร์ เนื้อหาเรื่องสมการเชิงเส้น 
-                  นักเรียนให้ความสนใจและมีผลการเรียนดีขึ้นเมื่อเทียบกับการสอนแบบบรรยาย
-                </p>
+                {aiReflection.questions && aiReflection.questions.length > 0 && (
+                  <div>
+                    <h4 className="text-gray-700 mb-1">❓ คำถามชวนคิด</h4>
+                    <ul className="list-disc list-inside text-gray-600 space-y-1 ml-2">
+                      {aiReflection.questions.map((q, i) => (
+                        <li key={i}>{q}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {content && (
+                  <div>
+                    <h4 className="text-gray-700 mb-1">📚 เนื้อหาบันทึก</h4>
+                    <p className="text-gray-600 whitespace-pre-wrap">{content.slice(0, 500)}{content.length > 500 ? '...' : ''}</p>
+                  </div>
+                )}
               </div>
-            </div>
+            ) : (
+              <div className="text-sm text-gray-500">
+                <p>ยังไม่มี AI Snapshot สำหรับบันทึกนี้</p>
+                {content && (
+                  <div className="mt-3">
+                    <h4 className="text-gray-700 mb-1">📚 เนื้อหาบันทึก</h4>
+                    <p className="text-gray-600 whitespace-pre-wrap">{content.slice(0, 500)}{content.length > 500 ? '...' : ''}</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Disclaimer */}
             <div className="mt-3 pt-3 border-t border-purple-200">
@@ -213,28 +246,9 @@ export function KnowledgeDetailScreen({ onBack }: KnowledgeDetailScreenProps) {
           <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
             <h3 className="text-gray-900 mb-3">📋 ประวัติการพิจารณา</h3>
             
-            <div className="space-y-3">
-              {mockAuditLogs.map((log, index) => (
-                <div key={log.id} className="flex gap-3">
-                  <div className="flex flex-col items-center">
-                    <div className="w-3 h-3 bg-blue-600 rounded-full" />
-                    {index < mockAuditLogs.length - 1 && (
-                      <div className="w-0.5 h-full bg-blue-200 mt-1" />
-                    )}
-                  </div>
-                  <div className="flex-1 pb-4">
-                    <p className="text-sm text-gray-900">{log.action}</p>
-                    <p className="text-xs text-gray-600 mt-0.5">
-                      {log.actor} • {log.timestamp}
-                    </p>
-                    {log.note && (
-                      <p className="text-xs text-gray-600 mt-1 italic bg-gray-50 px-2 py-1 rounded">
-                        "{log.note}"
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
+            <div className="text-sm text-gray-500 text-center py-4">
+              <p>ยังไม่มีประวัติการพิจารณา</p>
+              <p className="text-xs mt-1">(ระบบจะบันทึกเมื่อมีการเปลี่ยนสถานะ)</p>
             </div>
           </div>
         </div>

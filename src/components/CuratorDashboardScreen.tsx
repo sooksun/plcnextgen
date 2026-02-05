@@ -1,5 +1,5 @@
-import { Calendar, Clock, AlertCircle, Sparkles, ChevronDown } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Calendar, Clock, AlertCircle, Sparkles, ChevronDown, Info } from 'lucide-react';
+import { useState } from 'react';
 import {
   BarChart,
   Bar,
@@ -9,13 +9,13 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts';
-import type { InboxItem } from '@/types';
-import { statCards, pipelineItems, initialInboxItems, followUpItems, topicsData } from '@/data/mocks';
+import type { InboxItem, StatCard, PipelineItem } from '@/types';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { PipelineColumn } from './PipelineColumn';
 import { cn } from './ui/utils';
 import { useNotes } from '@/hooks/useNotes';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { useMemo } from 'react';
 
 interface CuratorDashboardScreenProps {
@@ -25,17 +25,66 @@ interface CuratorDashboardScreenProps {
 export function CuratorDashboardScreen({ onViewProposal }: CuratorDashboardScreenProps) {
   const [selectedYear, setSelectedYear] = useState('2569');
   const { notes } = useNotes();
+  const { user } = useAuthContext();
 
+  // กรอง notes ที่เป็นข้อเสนอหรือ PLC
+  const proposalNotes = useMemo(() => {
+    return notes.filter((n) => n.visibility === 'ข้อเสนอ' || n.visibility === 'PLC');
+  }, [notes]);
+
+  // สร้าง stat cards จากข้อมูลจริง (ตอนนี้ยังไม่มี status field ใน notes)
+  const statCards: StatCard[] = useMemo(() => {
+    const proposalCount = proposalNotes.length;
+    return [
+      { status: 'PROPOSED', label: 'รอพิจารณา', count: proposalCount, color: 'text-blue-700', bgColor: 'bg-blue-50 border-blue-200' },
+      { status: 'IN_TRIAL', label: 'กำลังทดลอง', count: 0, color: 'text-yellow-700', bgColor: 'bg-yellow-50 border-yellow-200' },
+      { status: 'TESTED', label: 'ทดลองแล้ว', count: 0, color: 'text-purple-700', bgColor: 'bg-purple-50 border-purple-200' },
+      { status: 'RECOMMENDED', label: 'แนะนำให้ใช้', count: 0, color: 'text-green-700', bgColor: 'bg-green-50 border-green-200' }
+    ];
+  }, [proposalNotes]);
+
+  // สร้าง pipeline items จาก notes
+  const pipelineItems: PipelineItem[] = useMemo(() => {
+    return proposalNotes.map((note) => {
+      const dateStr = note.date || note.timestamp || '';
+      const daysAgo = dateStr ? Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24)) : 0;
+      return {
+        id: note.id,
+        title: note.title,
+        status: 'PROPOSED' as const, // ยังไม่มี status field จริง
+        submittedBy: user?.full_name || 'ผู้ใช้',
+        daysAgo
+      };
+    });
+  }, [proposalNotes, user?.full_name]);
+
+  // สร้าง inbox list จาก notes (ไม่ใช้ mock)
   const inboxList: InboxItem[] = useMemo(() => {
-    const proposals = notes.filter((n) => n.visibility === 'ข้อเสนอ' || n.visibility === 'PLC');
-    const fromNotes: InboxItem[] = proposals.map((note) => ({
+    return proposalNotes.slice(0, 5).map((note) => ({
       id: note.id,
       title: note.title,
-      submittedBy: 'คุณ (เจ้าของ)',
+      submittedBy: user?.full_name || 'ผู้ใช้',
       submittedDate: (note.date || note.timestamp || '').toString().split('T')[0] || '–',
       topic: note.type || 'ทั่วไป'
     }));
-    return [...fromNotes, ...initialInboxItems];
+  }, [proposalNotes, user?.full_name]);
+
+  // สร้าง topics data จาก tags ของ notes
+  const topicsData = useMemo(() => {
+    const tagCount: Record<string, number> = {};
+    notes.forEach((note) => {
+      (note.tags || []).forEach((tag) => {
+        tagCount[tag] = (tagCount[tag] || 0) + 1;
+      });
+      // นับ type ด้วย
+      if (note.type) {
+        tagCount[note.type] = (tagCount[note.type] || 0) + 1;
+      }
+    });
+    return Object.entries(tagCount)
+      .map(([topic, count]) => ({ topic, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
   }, [notes]);
 
   return (
@@ -93,27 +142,35 @@ export function CuratorDashboardScreen({ onViewProposal }: CuratorDashboardScree
               <h3 className="text-gray-900">📥 Inbox (Top 5)</h3>
             </div>
             <div className="space-y-2">
-              {inboxList.map((item) => (
-                <Card
-                  key={item.id}
-                  className="p-3 cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors bg-gray-50 border-gray-200"
-                  onClick={() => onViewProposal?.(item.id)}
-                >
-                  <CardContent className="p-0">
-                    <h4 className="text-sm text-gray-900 mb-1">{item.title}</h4>
-                    <div className="flex items-center justify-between text-xs text-gray-600">
-                      <span>โดย {item.submittedBy}</span>
-                      <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-transparent">
-                        {item.topic}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
-                      <Calendar className="w-3 h-3" />
-                      <span>{item.submittedDate}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              {inboxList.length === 0 ? (
+                <div className="text-center py-6 text-gray-500">
+                  <Info className="w-6 h-6 mx-auto mb-2 text-gray-400" />
+                  <p className="text-sm">ยังไม่มีข้อเสนอ</p>
+                  <p className="text-xs mt-1">บันทึกที่แชร์เป็น "ข้อเสนอ" จะแสดงที่นี่</p>
+                </div>
+              ) : (
+                inboxList.map((item) => (
+                  <Card
+                    key={item.id}
+                    className="p-3 cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors bg-gray-50 border-gray-200"
+                    onClick={() => onViewProposal?.(item.id)}
+                  >
+                    <CardContent className="p-0">
+                      <h4 className="text-sm text-gray-900 mb-1">{item.title}</h4>
+                      <div className="flex items-center justify-between text-xs text-gray-600">
+                        <span>โดย {item.submittedBy}</span>
+                        <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-transparent">
+                          {item.topic}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                        <Calendar className="w-3 h-3" />
+                        <span>{item.submittedDate}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
           </Card>
 
@@ -121,40 +178,10 @@ export function CuratorDashboardScreen({ onViewProposal }: CuratorDashboardScree
             <div className="flex items-center gap-2 mb-3">
               <h3 className="text-gray-900">🔔 สิ่งที่ต้องติดตาม</h3>
             </div>
-            <div className="space-y-2">
-              {followUpItems.map((item) => (
-                <Card
-                  key={item.id}
-                  className={cn(
-                    'p-3 cursor-pointer transition-colors',
-                    item.urgency === 'high' ? 'bg-red-50 border-red-200 hover:bg-red-100' : 'bg-yellow-50 border-yellow-200 hover:bg-yellow-100'
-                  )}
-                  onClick={() => onViewProposal?.(item.id)}
-                >
-                  <CardContent className="p-0">
-                    <div className="flex items-start gap-2">
-                      {item.urgency === 'high' ? (
-                        <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
-                      ) : (
-                        <Clock className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
-                      )}
-                      <div className="flex-1">
-                        <h4 className="text-sm text-gray-900 mb-1">{item.title}</h4>
-                        <p className="text-xs text-gray-600">{item.detail}</p>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'mt-1 text-xs border-transparent',
-                            item.type === 'trial_ending' ? 'bg-yellow-100 text-yellow-700' : 'bg-purple-100 text-purple-700'
-                          )}
-                        >
-                          {item.type === 'trial_ending' ? 'ใกล้สิ้นสุดการทดลอง' : 'รอสรุปผล'}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="text-center py-8 text-gray-500">
+              <Info className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+              <p className="text-sm">ยังไม่มีรายการติดตาม</p>
+              <p className="text-xs mt-1">จะแสดงเมื่อมีข้อเสนอที่อยู่ระหว่างทดลองหรือรอสรุปผล</p>
             </div>
           </Card>
         </div>
@@ -162,32 +189,42 @@ export function CuratorDashboardScreen({ onViewProposal }: CuratorDashboardScree
         {/* Focus Topics Bar Chart */}
         <Card className="p-4 shadow-sm">
           <h3 className="text-gray-900 mb-3">📈 หัวข้อที่ได้รับความสนใจ (Top 5)</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={topicsData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis
-                dataKey="topic"
-                tick={{ fontSize: 12, fill: '#6b7280' }}
-                axisLine={{ stroke: '#d1d5db' }}
-              />
-              <YAxis
-                tick={{ fontSize: 12, fill: '#6b7280' }}
-                axisLine={{ stroke: '#d1d5db' }}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#fff',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  fontSize: '12px'
-                }}
-              />
-              <Bar dataKey="count" fill="#3b82f6" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-          <p className="text-xs text-gray-600 text-center mt-2">
-            จำนวนข้อเสนอและบันทึกที่เกี่ยวข้องแต่ละหัวข้อ
-          </p>
+          {topicsData.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <Info className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+              <p className="text-sm">ยังไม่มีข้อมูลสำหรับแสดงกราฟ</p>
+              <p className="text-xs mt-1">เมื่อมีบันทึกที่มีแท็กหรือหมวดหมู่ จะแสดงกราฟที่นี่</p>
+            </div>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={topicsData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis
+                    dataKey="topic"
+                    tick={{ fontSize: 12, fill: '#6b7280' }}
+                    axisLine={{ stroke: '#d1d5db' }}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 12, fill: '#6b7280' }}
+                    axisLine={{ stroke: '#d1d5db' }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#fff',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      fontSize: '12px'
+                    }}
+                  />
+                  <Bar dataKey="count" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+              <p className="text-xs text-gray-600 text-center mt-2">
+                จำนวนข้อเสนอและบันทึกที่เกี่ยวข้องแต่ละหัวข้อ
+              </p>
+            </>
+          )}
         </Card>
 
         {/* AI Insight Callout */}
@@ -196,28 +233,45 @@ export function CuratorDashboardScreen({ onViewProposal }: CuratorDashboardScree
             <Sparkles className="w-5 h-5 text-indigo-600" />
             <h3 className="text-gray-900">💡 AI Insight</h3>
           </div>
-          <div className="space-y-3 text-sm text-gray-700">
-            <div className="flex items-start gap-2">
-              <span className="text-indigo-600 flex-shrink-0">•</span>
-              <p>
-                <strong>การสอน</strong> เป็นหัวข้อที่ครูให้ความสนใจมากที่สุดในเดือนนี้ 
-                มีข้อเสนอที่เกี่ยวข้องกับวิธีการสอนหลากหลายรูปแบบ
-              </p>
+          {proposalNotes.length === 0 && notes.length === 0 ? (
+            <div className="text-center py-4 text-gray-500">
+              <p className="text-sm">ยังไม่มีข้อมูลเพียงพอสำหรับวิเคราะห์</p>
+              <p className="text-xs mt-1">เมื่อมีบันทึกและข้อเสนอมากขึ้น AI จะสรุป insight ให้ที่นี่</p>
             </div>
-            <div className="flex items-start gap-2">
-              <span className="text-indigo-600 flex-shrink-0">•</span>
-              <p>
-                มีข้อเสนอ <strong>5 รายการ</strong> อยู่ในระหว่างทดลองใช้ 
-                แนะนำติดตามผลและรวบรวม feedback จากครูผู้ทดลอง
-              </p>
-            </div>
-          </div>
-          <div className="mt-3 pt-3 border-t border-indigo-200">
-            <p className="text-xs text-indigo-700">
-              💡 Insight นี้สร้างจากข้อมูลในระบบ เพื่อช่วยให้เห็นภาพรวมและแนวโน้ม 
-              ไม่ใช่การตัดสินหรือเปรียบเทียบ
-            </p>
-          </div>
+          ) : (
+            <>
+              <div className="space-y-3 text-sm text-gray-700">
+                {topicsData.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-indigo-600 flex-shrink-0">•</span>
+                    <p>
+                      <strong>{topicsData[0].topic}</strong> เป็นหัวข้อที่ได้รับความสนใจมากที่สุด 
+                      มี {topicsData[0].count} บันทึกที่เกี่ยวข้อง
+                    </p>
+                  </div>
+                )}
+                <div className="flex items-start gap-2">
+                  <span className="text-indigo-600 flex-shrink-0">•</span>
+                  <p>
+                    มีข้อเสนอ <strong>{proposalNotes.length} รายการ</strong> ในระบบ
+                    {proposalNotes.length > 0 && ' พร้อมสำหรับการพิจารณา'}
+                  </p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-indigo-600 flex-shrink-0">•</span>
+                  <p>
+                    มีบันทึกทั้งหมด <strong>{notes.length} รายการ</strong> จากทุก PLC
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-indigo-200">
+                <p className="text-xs text-indigo-700">
+                  💡 Insight นี้สร้างจากข้อมูลในระบบ เพื่อช่วยให้เห็นภาพรวมและแนวโน้ม 
+                  ไม่ใช่การตัดสินหรือเปรียบเทียบ
+                </p>
+              </div>
+            </>
+          )}
         </Card>
       </div>
     </div>

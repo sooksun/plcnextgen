@@ -17,11 +17,16 @@ interface PLCDetailScreenProps {
 
 export function PLCDetailScreen({ plcName, onBack, onShareNewNote }: PLCDetailScreenProps) {
   const [activeTab, setActiveTab] = useState<TabType>('shared');
-  const isPLCLead = true; // Mock: current user is PLC lead
   const { confirm: confirmDialog } = useConfirm();
   const { notes, refresh } = useNotes();
   const { user } = useAuthContext();
   const plcId = useMemo(() => getPlcIdByName(plcName), [plcName]);
+
+  // ผู้นำ PLC = ADMIN, PRINCIPAL หรือ TEACHER (อนาคตอาจเช็คจากตาราง plc_members)
+  const isPLCLead = useMemo(() => {
+    const role = user?.role?.toUpperCase();
+    return role === 'ADMIN' || role === 'PRINCIPAL' || role === 'TEACHER';
+  }, [user?.role]);
 
   // ห้องสนทนา PLC (เก็บใน localStorage ตาม plcId)
   const { messages: chatMessages, sendMessage } = usePLCChat(
