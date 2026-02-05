@@ -18,13 +18,15 @@ import { TypeNoteScreen } from './components/TypeNoteScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { AuthProvider, useAuthContext } from './contexts/AuthContext';
 import { ConfirmProvider } from './contexts/ConfirmContext';
+import { isSupabaseAvailable } from '@/lib/supabase';
 import type { ShareLevel } from '@/types';
 import { getPlcNameById } from '@/data/plcGroups';
 
 function AppContent() {
   const { isAuthenticated, isLoading, user, isCurator, login, logout } = useAuthContext();
   const { isDark, toggleTheme } = useTheme();
-  
+  const [hideOfflineBanner, setHideOfflineBanner] = useState(false);
+
   const [activeTab, setActiveTab] = useState('home');
   const [showRecordCapture, setShowRecordCapture] = useState(false);
   const [showRecordReview, setShowRecordReview] = useState(false);
@@ -332,9 +334,27 @@ function AppContent() {
     );
   };
 
+  const showOfflineBanner =
+    isAuthenticated && !isSupabaseAvailable && !hideOfflineBanner;
+
   return (
     <div className="min-h-screen bg-theme-bg flex justify-center w-full">
       <div className="w-full max-w-md h-screen bg-theme-bg flex flex-col relative shadow-card-3d overflow-hidden">
+        {showOfflineBanner && (
+          <div className="flex-none flex items-center gap-2 px-3 py-2 bg-amber-100 text-amber-900 text-xs border-b border-amber-200 safe-area-top">
+            <span className="flex-1">
+              โหมดออฟไลน์: ไม่ได้เชื่อมต่อฐานข้อมูล — รายการบันทึกที่แชร์เป็นเพียงตัวอย่าง
+              ปุ่มแชร์บันทึกจะเก็บเฉพาะในเครื่องนี้
+            </span>
+            <button
+              type="button"
+              onClick={() => setHideOfflineBanner(true)}
+              className="shrink-0 px-2 py-1 rounded hover:bg-amber-200"
+            >
+              ซ่อน
+            </button>
+          </div>
+        )}
         {renderContent()}
       </div>
     </div>

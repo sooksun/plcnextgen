@@ -40,13 +40,16 @@ export function PLCDetailScreen({ plcName, onBack, onShareNewNote }: PLCDetailSc
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
-  // ดึงเฉพาะบันทึกที่แชร์มาในกลุ่ม PLC นี้ (จาก shared_to_plc_id)
+  // ดึงเฉพาะบันทึกที่แชร์มาในกลุ่ม PLC นี้ (visibility = PLC และ shared_to_plc_id ตรงกับกลุ่ม)
   const sharedRecords: SharedRecord[] = useMemo(() => {
     if (!plcId) return [];
 
-    const filtered = notes.filter(
-      (n) => n.visibility === 'PLC' && n.shared_to_plc_id === plcId
-    );
+    const plcIdStr = String(plcId);
+    const filtered = notes.filter((n) => {
+      const vis = n.visibility ? String(n.visibility).toUpperCase() : '';
+      const sharedId = n.shared_to_plc_id != null ? String(n.shared_to_plc_id) : '';
+      return vis === 'PLC' && sharedId === plcIdStr;
+    });
 
     return filtered.map((n) => ({
       id: n.id,
@@ -310,12 +313,13 @@ export function PLCDetailScreen({ plcName, onBack, onShareNewNote }: PLCDetailSc
         )}
       </div>
 
-      {/* Floating Action Button */}
+      {/* Floating Action Button — z-30 ให้อยู่เหนือเนื้อหา */}
       {activeTab === 'shared' && (
         <button
           type="button"
           onClick={() => onShareNewNote?.()}
-          className="absolute bottom-6 right-4 bg-blue-600 hover:bg-blue-700 text-white pl-4 pr-5 py-3 rounded-full shadow-lg flex items-center gap-2 transition-all z-20"
+          className="absolute bottom-6 right-4 z-30 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white pl-4 pr-5 py-3 rounded-full shadow-lg flex items-center gap-2 transition-all cursor-pointer touch-manipulation select-none"
+          aria-label="แชร์บันทึกของฉันเข้า PLC"
         >
           <Plus className="w-5 h-5" />
           <span className="text-sm">แชร์บันทึกของฉันเข้า PLC</span>

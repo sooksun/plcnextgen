@@ -36,18 +36,27 @@ function mapRowToNote(row: any): StoredNote {
     Array.isArray(ai_reflection.questions) &&
     Array.isArray(ai_reflection.suggestions);
 
+  // รองรับ visibility จาก DB ที่อาจเป็น 'PLC' หรือ 'plc'
+  const rawVisibility = (row.visibility || 'ส่วนตัว').toString().trim();
+  const visibility =
+    rawVisibility.toUpperCase() === 'PLC'
+      ? 'PLC'
+      : rawVisibility.toUpperCase() === 'ข้อเสนอ'
+        ? 'ข้อเสนอ'
+        : rawVisibility || 'ส่วนตัว';
+
   return {
     id: row.id,
     title,
     content,
     type: row.type || 'ประชุม',
-    visibility: row.visibility || 'ส่วนตัว',
+    visibility,
     date,
     timestamp: date,
     tags: Array.isArray(row.tags) ? row.tags : [],
     source: row.source || 'voice',
     ai_reflection: hasAiReflection ? (ai_reflection as StoredNote['ai_reflection']) : undefined,
-    shared_to_plc_id: row.shared_to_plc_id || undefined
+    shared_to_plc_id: row.shared_to_plc_id != null ? String(row.shared_to_plc_id) : undefined
   };
 }
 
@@ -55,10 +64,10 @@ function mapRowToNote(row: any): StoredNote {
 async function loadNotesFromSupabase(): Promise<StoredNote[]> {
   if (!supabase) return [];
   try {
-    // กรองเฉพาะ notes ที่ยังไม่ถูก soft delete (deleted_at IS NULL)
+    // ดึงคอลัมน์ที่ใช้แสดงและกรอง (รวม visibility, shared_to_plc_id) — ถ้า RLS บัง SELECT จะได้แถวว่าง
     const { data, error } = await supabase
       .from('notes')
-      .select('*')
+      .select('id, title, content, transcript, type, visibility, shared_to_plc_id, created_at, tags, source, ai_reflection, deleted_at')
       .is('deleted_at', null)
       .order('id', { ascending: false });
     if (error) {
@@ -66,7 +75,7 @@ async function loadNotesFromSupabase(): Promise<StoredNote[]> {
       if (error.message?.includes('deleted_at')) {
         const { data: allData, error: fallbackError } = await supabase
           .from('notes')
-          .select('*')
+          .select('id, title, content, transcript, type, visibility, shared_to_plc_id, created_at, tags, source, ai_reflection')
           .order('id', { ascending: false });
         if (fallbackError) {
           console.error('Supabase load error:', fallbackError);
