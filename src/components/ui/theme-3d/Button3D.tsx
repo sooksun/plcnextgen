@@ -11,16 +11,16 @@ export interface Button3DProps extends React.ButtonHTMLAttributes<HTMLButtonElem
 
 const variants = {
   primary:
-    'bg-primary text-primary-foreground shadow-button-3d hover:opacity-95 active:shadow-button-pressed active:translate-y-0.5 dark:shadow-button-3d',
+    'bg-blue-600 text-white shadow-button-3d hover:bg-blue-700 active:shadow-button-pressed active:translate-y-0.5 dark:bg-blue-500 dark:hover:bg-blue-600',
   secondary:
-    'bg-secondary text-secondary-foreground shadow-elevated hover:opacity-95 active:shadow-button-pressed active:translate-y-0.5',
+    'bg-gray-600 text-white shadow-elevated hover:bg-gray-700 active:shadow-button-pressed active:translate-y-0.5',
   outline:
-    'border-2 border-primary bg-transparent text-primary hover:bg-accent active:shadow-button-pressed active:translate-y-0.5',
+    'border-2 border-blue-600 bg-transparent text-blue-600 hover:bg-blue-50 active:shadow-button-pressed active:translate-y-0.5 dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-900/20',
   ghost: 'text-text-primary hover:bg-accent active:bg-accent',
   success:
-    'bg-success text-success-foreground shadow-button-3d hover:opacity-95 active:shadow-button-pressed active:translate-y-0.5',
+    'bg-green-600 text-white shadow-button-3d hover:bg-green-700 active:shadow-button-pressed active:translate-y-0.5',
   destructive:
-    'bg-error text-error-foreground shadow-elevated hover:opacity-95 active:shadow-button-pressed active:translate-y-0.5',
+    'bg-red-600 text-white shadow-elevated hover:bg-red-700 active:shadow-button-pressed active:translate-y-0.5',
 };
 
 const sizes = {

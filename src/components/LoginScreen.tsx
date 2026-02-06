@@ -32,11 +32,11 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   };
 
   return (
-    <div className="min-h-screen bg-theme-bg flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-[100dvh] bg-theme-bg flex items-center justify-center p-4 overflow-auto">
+      <div className="w-full max-w-md my-auto">
         {/* Logo & Title */}
-        <div className="text-center mb-8">
-          <img src="/logo.png" alt="School KM" className="w-10 h-10 mx-auto mb-4 object-contain" />
+        <div className="text-center mb-6">
+          <img src="/logo.png" alt="School KM" className="w-24 h-24 mx-auto mb-3 object-contain" />
           <h1 className="text-2xl font-bold text-text-primary mb-1">School KM</h1>
           <p className="text-text-secondary">ระบบจัดการความรู้โรงเรียน</p>
         </div>
@@ -90,7 +90,12 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               </div>
             )}
 
-            <Button3D type="submit" fullWidth size="lg" disabled={isLoading}>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full h-12 px-6 rounded-2xl text-lg font-medium bg-blue-600 text-white hover:bg-blue-700 active:translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              style={{ minHeight: '48px' }}
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -99,7 +104,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               ) : (
                 'เข้าสู่ระบบ'
               )}
-            </Button3D>
+            </button>
           </form>
 
           {/* Demo Credentials */}
